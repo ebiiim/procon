@@ -20,6 +20,8 @@ const TokenType TT_COMMA = ",";
 const TokenType TT_SEMICOLON = ";";
 // 変数
 const TokenType TT_VAR = "VAR";
+// 数値
+// const TokenType TT_NUM = "NUM";
 // エラーを示す。Tokenのデフォルトコンストラクタもこれになる。
 const TokenType TT_ERR = "ERR";
 // Expressionにおいて、自身がNodeであることを示す。{TT_INTERNAL_NODE, left, NULL}
@@ -39,6 +41,10 @@ struct Token
     {
         type = TT_ERR;
         literal = TT_ERR;
+    }
+    string to_string()
+    {
+        return literal + "(" + type + ")" + " ";
     }
 };
 
@@ -220,23 +226,26 @@ struct Statement
     }
 };
 
-vector<int> parseVec(string s)
+vector<Node> parseVec(vector<Token> &vt)
 {
+    for (auto v : vt)
+    {
+    }
 }
 
+// parseExpr
+// 必ず最後にセミコロンがある想定
 Expression *parseExpr(vector<Token> &vt, int start_at)
 {
-    string s = "";
-    for (auto t : vt)
-        s += t.literal + " ";
+    string s = printTokenVec(vt);
     cout << "[parseExpr] " << std::to_string(start_at) << " | " << s << endl;
 
-    // 必ず最後にセミコロンがある想定
     if (vt.size() == 2)
     {
         if (vt[0].type == TT_INT)
             return new Expression(stoi(vt[0].literal));
-        return new Expression(parseVec(vt[0].literal));
+        // vec
+        //return new Expression(parseVec(vt[0].literal));
     }
 
     auto expr = new Expression();
@@ -311,7 +320,8 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
         }
         else if (vt[pos].type == TT_VEC)
         {
-            vector<int> val = parseVec(vt[pos].literal);
+            vector<int> val;
+            // vector<int> val = parseVec(vt[pos].literal);
             if (nextIsRight)
                 expr->right = new Expression(val);
             else
@@ -533,12 +543,42 @@ int main1()
     return 0;
 }
 
+string printTokenVec(vector<Token> &vt, bool simple)
+{
+    string s = "";
+    for (auto t : vt)
+    {
+        if (simple)
+            s += t.literal + " ";
+        else
+            s += t.to_string();
+    }
+    return s;
+}
+string describeTokenVec(vector<Token> &vt) { return printTokenVec(vt, false); }
+string printTokenVec(vector<Token> &vt) { return printTokenVec(vt, true); }
+
 // #define testS(expr, result) cout << (((expr) == (result)) ? "OK" : "NG") << ": " << (expr) << endl;
 
 bool testS(string got, string want)
 {
     bool result = got == want;
     cout << (result ? "OK" : "NG") << ": " << got << endl;
+    return result;
+}
+
+bool testTokenize()
+{
+    bool result = true;
+
+    auto v0 = tokenize("int a = 123 ;");
+    result &= testS(describeTokenVec(v0), "int(int) a(VAR) =(=) 123(VAR) ;(;) ");
+
+    auto v1 = tokenize("vec v = [ 1 , 2 , -3 ] ;");
+    result &= testS(describeTokenVec(v1), "vec(vec) v(VAR) =(=) [([) 1(VAR) ,(,) 2(VAR) ,(,) -3(VAR) ](]) ;(;) ");
+
+    auto v2 = tokenize("int b = a + 1000 ;");
+    result &= testS(describeTokenVec(v2), "int(int) b(VAR) =(=) a(VAR) +(+) 1000(VAR) ;(;) ");
     return result;
 }
 
@@ -563,7 +603,7 @@ bool testExpr()
     return result;
 }
 
-int testStmt()
+bool testStmt()
 {
     bool result = true;
 
@@ -688,7 +728,7 @@ bool testEval()
 }
 bool test()
 {
-    return testNode() && testExpr() && testStmt() && testParseExpr() && testParseStmt() && testEvalExpr() && testEval();
+    return testTokenize() && testNode() && testExpr() && testStmt() && testParseExpr() && testParseStmt() && testEvalExpr() && testEval();
 }
 
 int main()
