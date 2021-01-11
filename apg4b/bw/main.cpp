@@ -169,26 +169,26 @@ struct Expression
         op = oper;
         left = leftExpr;
         right = rightExpr;
-        // cerr << "[INIT Expression Node Op] " << op->literal << endl;
+        cerr << "[INIT Expression Node Op] " << op->literal << endl;
     }
     Expression(int i)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(i);
-        // cerr << "[INIT Expression Node INT] " << node->to_string() << endl;
+        cerr << "[INIT Expression Node INT] " << node->to_string() << endl;
     }
     Expression(string s)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(s);
-        // cerr << "[INIT Expression Node VAR] " << node->to_string() << endl;
+        cerr << "[INIT Expression Node VAR] " << node->to_string() << endl;
     }
-    // Expression(vector<int> vi)
-    // {
-    //     op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
-    //     node = new Node(vi);
-    //     // cerr << "[INIT Expression Node VEC] " << node->to_string() << endl;
-    // }
+    Expression(vector<Node> vn)
+    {
+        op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
+        node = new Node(vn);
+        cerr << "[INIT Expression Node VEC] " << node->to_string() << endl;
+    }
     // err
     Expression()
     {
@@ -599,7 +599,7 @@ int main1()
 bool testS(string got, string want)
 {
     bool result = got == want;
-    cerr << (result ? "OK" : "NG") << ": " << got << endl;
+    cout << (result ? "OK" : "NG") << ": " << got << endl;
     return result;
 }
 
@@ -609,9 +609,6 @@ bool testTokenize()
 
     auto v0 = tokenize("int a = 123 ;");
     result &= testS(describeTokenVec(v0), "int(int) a(VAR) =(=) 123(NUM) ;(;) ");
-
-    auto v1 = tokenize("vec v = [ 1 , 2 , -3 ] ;");
-    result &= testS(describeTokenVec(v1), "vec(vec) v(VAR) =(=) [([) 1(NUM) ,(,) 2(NUM) ,(,) -3(NUM) ](]) ;(;) ");
 
     auto v2 = tokenize("int b = a + 1000 ;");
     result &= testS(describeTokenVec(v2), "int(int) b(VAR) =(=) a(VAR) +(+) 1000(NUM) ;(;) ");
@@ -649,12 +646,6 @@ bool testExpr()
     auto e21 = Expression(new Token(TT_PLUS, TT_PLUS), &e1, &e2);
     result &= testS(e21.to_string(), "expr(expr(5)+expr(a))");
 
-    // auto e2 = Expression(vector<int>{1, 2, -3, 4, 5});
-    // result &= testS(e2.to_string(), "expr([ 1 2 -3 4 5 ])");
-
-    // auto e3 = Expression(10);
-    // auto e4 = Expression(new Token(TT_PLUS, TT_PLUS), &e1, &e2);
-    // result &= testS(e4.to_string(), "expr(expr(5)+expr([ 1 2 -3 4 5 ]))");
     return result;
 }
 
@@ -667,10 +658,11 @@ bool testStmt()
     auto s1 = Statement(&s1t, &s1e);
     result &= testS(s1.to_string(), "stmt(int a = expr(5))");
 
-    // auto s2t = Token(TT_PVEC, TT_PVEC);
-    // auto s2e = Expression(vector<int>{1, 2, -3, 4, 5});
-    // auto s2 = Statement(&s2t, &s2e);
-    // result &= testS(s2.to_string(), "stmt(print_vec expr([ 1 2 -3 4 5 ]))");
+    auto s2t = Token(TT_PINT, TT_PINT);
+    auto s2e = Expression(5);
+    auto s2 = Statement(&s2t, &s2e);
+    result &= testS(s2.to_string(), "stmt(print_int expr(5))");
+
     return result;
 }
 
@@ -697,10 +689,6 @@ bool testParseExpr()
     vector<Token> t4{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_VAR, "a"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
     auto e4 = parseExpr(t4, 0);
     result &= testS(e4->to_string(), "expr(expr(expr(expr(5)+expr(a))-expr(500))-expr(5000))");
-
-    // vector<Token> t3{Token(TT_VEC, "[ 1 , 2 , -3 , 4 , 5 ]"), Token(TT_PLUS, TT_PLUS), Token(TT_VEC, "[ 5 , 4 , -3 , 2 , 1 ]")};
-    // auto e3 = parseExpr(t1, 0);
-    // result &= testS(e3->to_string(), "expr(expr(1)+expr(10))");
 
     return result;
 }
@@ -836,7 +824,108 @@ bool testEvalTokenStr()
 
     return result;
 }
-bool test()
+
+bool testTokenizeV()
+{
+    bool result = true;
+
+    auto v1 = tokenize("vec v = [ 1 , 2 , -3 ] ;");
+    result &= testS(describeTokenVec(v1), "vec(vec) v(VAR) =(=) [([) 1(NUM) ,(,) 2(NUM) ,(,) -3(NUM) ](]) ;(;) ");
+
+    auto v2 = tokenize("print_vec [ 1 , 2 , -3 ] + [ 9 , 8 , -13 ] ;");
+    result &= testS(describeTokenVec(v2), "print_vec(print_vec) [([) 1(NUM) ,(,) 2(NUM) ,(,) -3(NUM) ](]) +(+) [([) 9(NUM) ,(,) 8(NUM) ,(,) -13(NUM) ](]) ;(;) ");
+
+    auto v3 = tokenize("print_vec [ 1 , 2 , -3 ] + a ;");
+    result &= testS(describeTokenVec(v3), "print_vec(print_vec) [([) 1(NUM) ,(,) 2(NUM) ,(,) -3(NUM) ](]) +(+) a(VAR) ;(;) ");
+
+    return result;
+}
+
+bool testNodeV()
+{
+    bool result = true;
+
+    auto n2 = Node(vector<Node>{Node(1), Node(2), Node(-3), Node(4), Node(5)});
+    result &= testS(n2.to_string(), "[ 1 2 -3 4 5 ]");
+
+    auto n3 = Node(vector<Node>{Node(1), Node(2), Node("a"), Node("b"), Node(5)});
+    result &= testS(n3.to_string(), "[ 1 2 a b 5 ]");
+
+    return result;
+}
+
+bool testExprV()
+{
+    bool result = true;
+
+    auto e2 = Expression(vector<Node>{Node(1), Node(2), Node(-3), Node(4), Node(5)});
+    result &= testS(e2.to_string(), "expr([ 1 2 -3 4 5 ])");
+
+    auto e21 = Expression(vector<Node>{Node(1), Node(2), Node("a"), Node("b"), Node(5)});
+    result &= testS(e21.to_string(), "expr([ 1 2 a b 5 ])");
+
+    auto e4 = Expression(new Token(TT_PLUS, TT_PLUS), &e2, &e21);
+    result &= testS(e4.to_string(), "expr(expr([ 1 2 -3 4 5 ])+expr([ 1 2 a b 5 ]))");
+
+    auto e5 = Expression(new Token(TT_MINUS, TT_MINUS), &e4, &e2);
+    result &= testS(e5.to_string(), "expr(expr(expr([ 1 2 -3 4 5 ])+expr([ 1 2 a b 5 ]))-expr([ 1 2 -3 4 5 ]))");
+
+    auto e6 = Expression(new Token(TT_PLUS, TT_PLUS), &e4, new Expression("a"));
+    result &= testS(e6.to_string(), "expr(expr(expr([ 1 2 -3 4 5 ])+expr([ 1 2 a b 5 ]))+expr(a))");
+
+    return result;
+}
+
+bool testStmtV()
+{
+    bool result = true;
+
+    auto s1t = Token(TT_VEC, "v");
+    auto s1e = Expression(vector<Node>{Node(1), Node(2), Node("a"), Node("b"), Node(5)});
+    auto s1 = Statement(&s1t, &s1e);
+    result &= testS(s1.to_string(), "stmt(vec v = expr([ 1 2 a b 5 ]))");
+
+    auto s2t = Token(TT_PVEC, TT_PVEC);
+    auto s2e = Expression(vector<Node>{Node(1), Node(2), Node("a"), Node("b"), Node(5)});
+    auto s2 = Statement(&s2t, &s2e);
+    result &= testS(s2.to_string(), "stmt(print_vec expr([ 1 2 a b 5 ]))");
+
+    auto s3t = Token(TT_PVEC, TT_PVEC);
+    auto s3e = Expression(new Token(TT_PLUS, TT_PLUS), new Expression(vector<Node>{Node(1), Node(2), Node("a"), Node("b"), Node(5)}), new Expression("a"));
+    auto s3 = Statement(&s3t, &s3e);
+    result &= testS(s3.to_string(), "stmt(print_vec expr(expr([ 1 2 a b 5 ])+expr(a)))");
+
+    return result;
+}
+
+bool testParseExprV()
+{
+    bool result = true;
+
+    auto t0 = tokenize("[ 1 , 2 , -3 ] ;");
+    auto e0 = parseExpr(t0, 0);
+    result &= testS(e0->to_string(), "expr([ 1 2 -3 ])");
+
+    auto t1 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] ;");
+    auto e1 = parseExpr(t1, 0);
+    result &= testS(e1->to_string(), "expr([ 1 2 -3 ])+expr([ 9 8 13 ])");
+
+    auto t2 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] ;");
+    auto e2 = parseExpr(t2, 0);
+    result &= testS(e2->to_string(), "expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 10 10 ]))");
+
+    auto t3 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] - [ -100 , -200 , -300 ] ;");
+    auto e3 = parseExpr(t3, 0);
+    result &= testS(e3->to_string(), "expr(expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 10 10 ])))-expr([ -100 -200 -300]))");
+
+    auto t4 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    auto e4 = parseExpr(t4, 0);
+    result &= testS(e4->to_string(), "expr(expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 x 10 ])))+expr(y))");
+
+    return result;
+}
+
+bool testNum()
 {
     bool r = true;
     r &= testTokenize();
@@ -851,11 +940,26 @@ bool test()
     return r;
 }
 
+bool testVec()
+{
+    bool r = true;
+    r &= testTokenizeV();
+    r &= testNodeV();
+    r &= testExprV();
+    r &= testStmtV();
+    // r &= testParseExprV();
+    // r &= testParseStmtV();
+    // r &= testEvalExprV();
+    // r &= testEvalV();
+    // r &= testEvalTokenStrV();
+    return r;
+}
+
 int main()
 {
     // HACK: disable cerr
     // cerr.setstate(std::ios::failbit);
-    if (!test())
+    if (!(testNum() && testVec()))
     {
         cout << "test failed" << endl;
         return 1;
