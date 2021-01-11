@@ -367,7 +367,8 @@ vector<Token> tokenizeVector(vector<Token> &vt)
 // parseExpr
 // 後ろから読んでいく
 // start_atは再帰で後から何文字飛ばすかを指定する、外から呼ぶときは0
-// 必ず最後にセミコロンがある想定
+// **必ず最後にセミコロンがある想定**
+// **vtはtokenizeVectorに通してある想定**
 // `int a = 5 ;`のうち
 //     `int a =`はparseStmtで処理
 //     `5 ;`はparseExlprで処理
@@ -434,29 +435,45 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
                  << "MINUS" << endl;
             expr->op = new Token(TT_MINUS, TT_MINUS);
         }
-        else if (vt[pos].type == TT_NUM || vt[pos].type == TT_VAR)
+        else if (vt[pos].type == TT_NUM || vt[pos].type == TT_INTERNAL_VEC_CONTAINER || vt[pos].type == TT_VAR)
         {
             bool isVar = (vt[pos].type == TT_VAR);
-            // TT_NUMかTT_VARかわからないので、どちらも用意しておく
+            // INTかVARかVECCかわからないので、全部用意しておく
             int val;
             string var;
-            if (isVar)
+            string vecc;
+
+            auto typ = vt[pos].type;
+            if (typ == TT_VAR)
                 var = vt[pos].literal;
-            else
+            else if (typ == TT_NUM)
                 val = stoi(vt[pos].literal);
+            else if (typ == TT_INTERNAL_VEC_CONTAINER)
+                vecc = vt[pos].literal;
+
             if (nextIsRight)
             {
                 cerr << "[parseExpr] " << start_at << " | " << pos << " | "
-                     << "RIGHT " << (isVar ? var : std::to_string(val)) << endl;
-                expr->right = isVar ? new Expression(var) : new Expression(val);
+                     << "RIGHT " << vt[pos].literal << endl;
+                if (typ == TT_VAR)
+                    expr->right = new Expression(var);
+                else if (typ == TT_NUM)
+                    expr->right = new Expression(val);
+                else if (typ == TT_INTERNAL_VEC_CONTAINER)
+                    expr->right = new Expression(vecc);
             }
             else
             {
                 if (pos == 0)
                 {
                     cerr << "[parseExpr] " << start_at << " | " << pos << " | "
-                         << "LEFT " << (isVar ? var : std::to_string(val)) << endl;
-                    expr->left = isVar ? new Expression(var) : new Expression(val);
+                         << "LEFT " << vt[pos].literal << endl;
+                    if (typ == TT_VAR)
+                        expr->left = new Expression(var);
+                    else if (typ == TT_NUM)
+                        expr->left = new Expression(val);
+                    else if (typ == TT_INTERNAL_VEC_CONTAINER)
+                        expr->left = new Expression(vecc);
                     cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "RETURN " << expr->to_string() << endl;
                     return expr;
@@ -481,30 +498,7 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
                 }
             }
         }
-        // else if (vt[pos].type == TT_VEC)
-        // {
-        //     vector<int> val;
-        //     // vector<int> val = parseVec(vt[pos].literal);
-        //     if (nextIsRight)
-        //         expr->right = new Expression(val);
-        //     else
-        //     {
-        //         if (pos == 0)
-        //         {
-        //             expr->left = new Expression(val);
-        //             return expr;
-        //         }
-        //         else if (start_at == 0) // first loop; take care of the semicolon
-        //             expr->left = parseExpr(vt, start_at + 3);
-        //         else
-        //         {
-        //             expr->left = parseExpr(vt, start_at + 2);
-        //         }
-        //     }
-        // }
         --pos;
-        // cerr << "[parseExpr] " << start_at << " | " << pos << " | "
-        //      << "POS-- | " << pos << endl;
     }
     return expr;
 }
@@ -519,7 +513,9 @@ Statement *parseStmt(vector<Token> &vt)
         vector<Token> vt2(int(vt.size()) - 3);
         for (int i = 0; i < int(vt.size() - 3); ++i)
             vt2[i] = vt[i + 3];
-        auto expr = parseExpr(vt2, 0);
+        auto vt3 = tokenizeVector(vt2);
+        cerr << "[parseStmt] tokenizeVector " << printTokenVec(vt2) << " -> " << printTokenVec(vt3) << endl;
+        auto expr = parseExpr(vt3, 0);
         cerr << "[parseStmt] Return: " << expr->to_string() << endl;
         return new Statement(t, expr);
     }
@@ -527,14 +523,13 @@ Statement *parseStmt(vector<Token> &vt)
     else if (vt.at(0).type == TT_PINT || vt.at(0).type == TT_PVEC)
     {
         auto t = new Token(vt.at(0).type, vt.at(0).literal);
-        string s = "";
-        for (auto t : vt)
-            s += t.literal + " ";
-        cerr << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
+        cerr << "[parseStmt] size" << int(vt.size()) << " " << printTokenVec(vt) << endl;
         vector<Token> vt2(int(vt.size()) - 1);
         for (int i = 0; i < int(vt.size() - 1); ++i)
             vt2[i] = vt[i + 1];
-        auto expr = parseExpr(vt2, 0);
+        auto vt3 = tokenizeVector(vt2);
+        cerr << "[parseStmt] tokenizeVector " << printTokenVec(vt2) << " -> " << printTokenVec(vt3) << endl;
+        auto expr = parseExpr(vt3, 0);
         cerr << "[parseStmt] Return" << endl;
         return new Statement(t, expr);
     }
@@ -1036,24 +1031,52 @@ bool testParseExprV()
     bool result = true;
 
     auto t0 = tokenize("[ 1 , 2 , -3 ] ;");
+    t0 = tokenizeVector(t0);
     auto e0 = parseExpr(t0, 0);
     result &= testS(e0->to_string(), "expr([ 1 2 -3 ])");
 
     auto t1 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] ;");
+    t1 = tokenizeVector(t1);
     auto e1 = parseExpr(t1, 0);
-    result &= testS(e1->to_string(), "expr([ 1 2 -3 ])+expr([ 9 8 13 ])");
+    result &= testS(e1->to_string(), "expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))");
 
     auto t2 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] ;");
+    t2 = tokenizeVector(t2);
     auto e2 = parseExpr(t2, 0);
     result &= testS(e2->to_string(), "expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 10 10 ]))");
 
     auto t3 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] - [ -100 , -200 , -300 ] ;");
+    t3 = tokenizeVector(t3);
     auto e3 = parseExpr(t3, 0);
-    result &= testS(e3->to_string(), "expr(expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 10 10 ])))-expr([ -100 -200 -300]))");
+    result &= testS(e3->to_string(), "expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 10 10 ]))-expr([ -100 -200 -300 ]))");
 
     auto t4 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    t4 = tokenizeVector(t4);
     auto e4 = parseExpr(t4, 0);
-    result &= testS(e4->to_string(), "expr(expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 x 10 ])))+expr(y))");
+    result &= testS(e4->to_string(), "expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 x 10 ]))+expr(y))");
+
+    return result;
+}
+
+bool testParseStmtV()
+{
+    bool result = true;
+
+    auto t0 = tokenize("vec a = [ 1 , 2 , -3 ] ;");
+    auto s0 = parseStmt(t0);
+    result &= testS(s0->to_string(), "stmt(vec a = expr([ 1 2 -3 ]))");
+
+    auto t1 = tokenize("vec b = [ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    auto s1 = parseStmt(t1);
+    result &= testS(s1->to_string(), "stmt(vec b = expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 x 10 ]))+expr(y)))");
+
+    auto t2 = tokenize("print_vec [ 1 , 2 , -3 ] ;");
+    auto s2 = parseStmt(t2);
+    result &= testS(s2->to_string(), "stmt(print_vec expr([ 1 2 -3 ]))");
+
+    auto t3 = tokenize("print_vec [ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    auto s3 = parseStmt(t3);
+    result &= testS(s3->to_string(), "stmt(print_vec expr(expr(expr(expr([ 1 2 -3 ])+expr([ 9 8 13 ]))-expr([ 10 x 10 ]))+expr(y)))");
 
     return result;
 }
@@ -1081,8 +1104,8 @@ bool testVec()
     r &= testExprV();
     r &= testStmtV();
     r &= testTokenizeVector();
-    // r &= testParseExprV();
-    // r &= testParseStmtV();
+    r &= testParseExprV();
+    r &= testParseStmtV();
     // r &= testEvalExprV();
     // r &= testEvalV();
     // r &= testEvalTokenStrV();
