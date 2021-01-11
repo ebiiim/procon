@@ -26,6 +26,8 @@ const TokenType TT_NUM = "NUM";
 const TokenType TT_ERR = "ERR";
 // Expressionにおいて、自身がNodeであることを示す。{TT_INTERNAL_NODE, left, NULL}
 const TokenType TT_INTERNAL_NODE = "NODE";
+// parseでVECをまとめて1個のTokenにする。入れ子は対応しない。
+const TokenType TT_INTERNAL_VEC_CONTAINER = "VECC";
 
 struct Token
 {
@@ -71,7 +73,7 @@ vector<Token> tokenize(string line)
     while (true)
     {
         iss >> s;
-        // cerr << "[tokenize] " << s << endl;
+        cerr << "[tokenize] " << s << endl;
         if (s == TT_SEMICOLON)
         {
             t.push_back(Token(TT_SEMICOLON, s));
@@ -243,7 +245,6 @@ struct Statement
     }
     string to_string()
     {
-        // cerr << "[Statement.to_string]" << endl;
         string s = "stmt(";
         if (var->type == TT_INT || var->type == TT_VEC)
             s += var->type + " " + var->literal + " = " + expr->to_string();
@@ -260,25 +261,61 @@ struct Statement
 };
 
 // parseExpr
+// 後ろから読んでいく
+// start_atは再帰で後から何文字飛ばすかを指定する、外から呼ぶときは0
 // 必ず最後にセミコロンがある想定
+// `int a = 5 ;`のうち
+//     `int a =`はparseStmtで処理
+//     `5 ;`はparseExlprで処理
+//     (tokenize後なのでwhitespaceは無視して良い)
 Expression *parseExpr(vector<Token> &vt, int start_at)
 {
     string s = printTokenVec(vt);
     cerr << "[parseExpr] " << std::to_string(start_at) << " | " << s << endl;
 
-    // "5;"
-    // "-100;"
-    // "a;"
+    // Nodeとセミコロンだけの場合
+    // Nodeを返すだけ
+    // e.g. "5;", "-100;", "a;"
+    // sizeで見るのでvecは対応できない
     if (vt.size() == 2)
     {
         if (vt[0].type == TT_NUM)
             return new Expression(stoi(vt[0].literal));
         if (vt[0].type == TT_VAR)
             return new Expression(vt[0].literal);
-        // vec
-        //return new Expression(parseVec(vt[0].literal));
     }
 
+    // TODO: 左からスキャンしてvecを1トークンにする関数
+
+    // // 単一vecは[ ... ];なので
+    // // TT_LBRACとTT_RBRACが1個ずつ かつ vt[0]がTT_LBRAC かつ vt[vt.size()-2]がTT_RBRAC
+    // int cntLB = 0;
+    // int cntRB = 0;
+    // for (auto t : vt)
+    // {
+    //     if (t.type == TT_LBRAC)
+    //         ++cntLB;
+    //     if (t.type == TT_RBRAC)
+    //         ++cntRB;
+    // }
+    // if (cntLB == 1 && cntRB == 1 && vt[0].type == TT_LBRAC && vt[int(vt.size()) - 2].type == TT_RBRAC)
+    // {
+    //     // TODO: vecのToken列を後からパースする関数
+    // }
+
+    // 演算子がある場合
+    // 末尾開始、再帰的にExpressionを作る
+    // 演算子の右をrightに、演算子の左をleftに入れる
+    // 末尾開始なので、演算子の左はその左にさらに何かあるかもしれない
+    // なので、演算子より左のToken列をparseする(再帰)
+    // a + b + c + d
+    // [a + b + c] (+) (d)
+    //         a + b + c
+    //         {a + b} (+) (c)
+    //                 a + b
+    //                 (a) (+) (b)
+    //         {(a) (+) (b)} (+) (c)
+    // [{(a) (+) (b)} (+) (c)] (+) (d)
     auto expr = new Expression();
     bool nextIsRight = true;
     auto pos = int(vt.size()) - start_at - 1; // off-by-one
@@ -312,15 +349,13 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
         else if (vt[pos].type == TT_NUM || vt[pos].type == TT_VAR)
         {
             bool isVar = (vt[pos].type == TT_VAR);
-            // どちらか使う
+            // TT_NUMかTT_VARかわからないので、どちらも用意しておく
             int val;
             string var;
-
             if (isVar)
                 var = vt[pos].literal;
             else
                 val = stoi(vt[pos].literal);
-
             if (nextIsRight)
             {
                 cerr << "[parseExpr] " << start_at << " | " << pos << " | "
@@ -388,13 +423,11 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
 
 Statement *parseStmt(vector<Token> &vt)
 {
-    if (vt.at(0).type == TT_INT)
+    // 代入は=より右側をparseExprに渡す
+    if (vt.at(0).type == TT_INT || vt.at(0).type == TT_VEC)
     {
         auto t = new Token(vt.at(0).type, vt.at(1).literal);
-        string s = "";
-        for (auto t : vt)
-            s += t.literal + " ";
-        cerr << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
+        cerr << "[parseStmt] size" << int(vt.size()) << " " << printTokenVec(vt) << endl;
         vector<Token> vt2(int(vt.size()) - 3);
         for (int i = 0; i < int(vt.size() - 3); i++)
             vt2[i] = vt[i + 3];
@@ -402,14 +435,8 @@ Statement *parseStmt(vector<Token> &vt)
         cerr << "[parseStmt] Return: " << expr->to_string() << endl;
         return new Statement(t, expr);
     }
-    else if (vt.at(0).type == TT_VEC)
-    {
-        auto t = new Token(vt.at(0).type, vt.at(1).literal);
-        cerr << "[parseStmt] " << t->literal << endl;
-        auto expr = parseExpr(vt, 0);
-        return new Statement(t, expr);
-    }
-    else if (vt.at(0).type == TT_PINT)
+    // printはprint_*より右側をparseExprに渡す
+    else if (vt.at(0).type == TT_PINT || vt.at(0).type == TT_PVEC)
     {
         auto t = new Token(vt.at(0).type, vt.at(0).literal);
         string s = "";
@@ -421,13 +448,6 @@ Statement *parseStmt(vector<Token> &vt)
             vt2[i] = vt[i + 1];
         auto expr = parseExpr(vt2, 0);
         cerr << "[parseStmt] Return" << endl;
-        return new Statement(t, expr);
-    }
-    else if (vt.at(0).type == TT_PVEC)
-    {
-        auto t = new Token(vt.at(0).type, vt.at(0).literal);
-        cerr << "[parseStmt] " << t->literal << endl;
-        auto expr = parseExpr(vt, 1);
         return new Statement(t, expr);
     }
     // err
@@ -470,7 +490,7 @@ void evalExpr(Expression *expr, Variables *vars)
     // cerr << expr->op->type << endl;
 
     // 自身がNodeなら終わり
-    // (print_int a)のaとか
+    // `expr(a)`
     if (expr->op->type == TT_INTERNAL_NODE)
     {
         cerr << "[evalExpr] NODE | " << expr->to_string() << endl;
@@ -478,31 +498,36 @@ void evalExpr(Expression *expr, Variables *vars)
         return;
     }
     // leftがNodeじゃなければ再帰
-    // (a+b+c)のcとか
+    // `expr(expr(a)+expr(b))`は再帰しない
+    // `expr(expr(expr(a)+expr(b))-expr(c))`は再帰する
     if (expr->left->op->type != TT_INTERNAL_NODE)
     {
         cerr << "[evalExpr] RECURSION | " << expr->left->to_string() << endl;
         evalExpr(expr->left, vars);
     }
+    // 最後まで再帰したら`expr(expr(a)+expr(b))`のはず、opを評価していく
     // err check
     if (expr->left->op->type != TT_INTERNAL_NODE || expr->right->op->type != TT_INTERNAL_NODE)
         cerr << "[evalExpr] ERR | not TT_INTERNAL_NODE";
-
-    cerr << "[evalExpr] CALC | " << expr->to_string() << endl;
-    // 計算する前に変数を解決する
+    cerr << "[evalExpr] EVAL | " << expr->to_string() << endl;
+    // 計算する前に変数を解決する TT_VAR -> (TT_INT or TT_VEC)
+    // leftとrightはともにTT_INT or TT_VECのどちらか(left.type==right.type)
+    // vec内の変数はここでは解決しない
     resolveVar(expr->left, vars);
     resolveVar(expr->right, vars);
+    // intの足し算
     if (expr->op->type == TT_PLUS && expr->left->node->type == TT_INT)
     {
         auto val = expr->left->node->int_value + expr->right->node->int_value;
         auto expr2 = new Expression(val);
         cerr << "[evalExpr] PLUS | " << expr2->to_string() << endl;
-        // expr = expr2; // TODO: これなんでダメ？
+        // expr = expr2; // XXX: これなんでダメ？
         expr->left = NULL;
         expr->right = NULL;
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         expr->node = new Node(val);
     }
+    // intの引き算
     else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_INT)
     {
         auto val = expr->left->node->int_value - expr->right->node->int_value;
@@ -513,12 +538,20 @@ void evalExpr(Expression *expr, Variables *vars)
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         expr->node = new Node(val);
     }
-    // else if (expr->op->type == TT_PLUS && expr->left->node->type == TT_VEC)
-    // {
-    // }
-    // else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_VEC)
-    // {
-    // }
+    // vecの足し算
+    else if (expr->op->type == TT_PLUS && expr->left->node->type == TT_VEC)
+    {
+        // TODO
+        cout << "not implemented" << endl;
+        exit(1);
+    }
+    // vecの引き算
+    else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_VEC)
+    {
+        // TODO
+        cout << "not implemented" << endl;
+        exit(1);
+    }
 }
 
 // evaluate
@@ -529,7 +562,8 @@ void evalExpr(Expression *expr, Variables *vars)
 string evaluate(Statement *stmt, Variables *vars)
 {
     cerr << "[evaluate] " << stmt->to_string() << endl;
-    if (stmt->var->type == TT_INT)
+    // 代入
+    if (stmt->var->type == TT_INT || stmt->var->type == TT_VEC)
     {
         evalExpr(stmt->expr, vars);
         if (stmt->expr->op->type == TT_ERR)
@@ -539,28 +573,14 @@ string evaluate(Statement *stmt, Variables *vars)
         cerr << "[evaluate] SET" << endl;
         return "";
     }
-    // else if (stmt->var->type == TT_VEC)
-    // {
-    //     evalExpr(stmt->expr);
-    //     if (stmt->expr->op->type == TT_ERR)
-    //         return TT_ERR;
-    //     (*vars)[stmt->var->literal] = *stmt->expr->node;
-    //     return "";
-    // }
-    else if (stmt->var->type == TT_PINT)
+    // print
+    else if (stmt->var->type == TT_PINT || stmt->var->type == TT_PVEC)
     {
         evalExpr(stmt->expr, vars);
         if (stmt->expr->op->type == TT_ERR || stmt->expr->node->type == TT_ERR)
             return TT_ERR;
         return stmt->expr->node->to_string();
     }
-    // else if (stmt->var->type == TT_PVEC)
-    // {
-    //     evalExpr(stmt->expr);
-    //     if (stmt->expr->op->type == TT_ERR || stmt->expr->node->type == TT_ERR)
-    //         return TT_ERR;
-    //     return stmt->expr->node->to_string();
-    // }
     return TT_ERR;
 }
 
