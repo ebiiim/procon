@@ -6,8 +6,8 @@ using namespace std;
 
 using TokenType = string;
 
-const TokenType TT_INT = "int";
-const TokenType TT_VEC = "vec";
+// TT_*
+// Token.typeにおいて、各種キーワードを表す
 const TokenType TT_PINT = "print_int";
 const TokenType TT_PVEC = "print_vec";
 const TokenType TT_LBRAC = "[";
@@ -18,15 +18,32 @@ const TokenType TT_ASTERISK = "*";
 const TokenType TT_EQ = "=";
 const TokenType TT_COMMA = ",";
 const TokenType TT_SEMICOLON = ";";
-// 変数
+// TT_INT
+// Token.typeにおいて、キーワード`int`を表す
+// Node.typeにおいて、NodeがNode.int_valueにintを格納することを表す
+const TokenType TT_INT = "int";
+// TT_VEC
+// Token.typeにおいて、キーワード`vec`を表す
+// Node.typeにおいて、NodeがNode.vec_valueにVector<Node>を格納することを表す
+const TokenType TT_VEC = "vec";
+// TT_VAR
+// Token.typeにおいて、変数名を表す
+// Token.literalに変数名を格納する
 const TokenType TT_VAR = "VAR";
-// 数値
+// TT_NUM
+// Token.typeにおいて、整数値を表す
+// Token.literalに値を格納する
 const TokenType TT_NUM = "NUM";
-// エラーを示す。Tokenのデフォルトコンストラクタもこれになる。
+// TT_ERR
+// エラーを表す
+// Token、Node、ExpressionのデフォルトコンストラクタはTT_ERR
 const TokenType TT_ERR = "ERR";
-// Expressionにおいて、自身がNodeであることを示す。{TT_INTERNAL_NODE, left, NULL}
+// TT_INTERNAL_NODE
+// Expressionにおいて、自身がNodeであること(left==NULL && right==NULL && node!=NULL)を表す
 const TokenType TT_INTERNAL_NODE = "NODE";
-// parseでVECをまとめて1個のTokenにする。入れ子は対応しない。
+// TT_INTERNAL_VEC_CONTAINER
+// パーサーでvecをまとめて1個のTokenにする(入れ子は対応しない)
+// Token.literalにvecのリテラルを格納する
 const TokenType TT_INTERNAL_VEC_CONTAINER = "VECC";
 
 struct Token
