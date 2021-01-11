@@ -56,7 +56,8 @@ struct Token
         type = t;
         literal = l;
     }
-    Token() // err
+    // err
+    Token()
     {
         type = TT_ERR;
         literal = TT_ERR;
@@ -137,16 +138,43 @@ struct Node
     vector<Node> vec_value;
 
     Node() { type = TT_ERR; }
+    // Node (INT)
     Node(int v)
     {
         type = TT_INT;
         int_value = v;
     }
+    // Node (VAR)
     Node(string s)
     {
         type = TT_VAR;
         var_value = s;
     }
+    // Node (VECC)
+    Node(Token t)
+    {
+        type = TT_VEC;
+        vector<Node> v;
+        istringstream iss(t.literal);
+        cerr << "[Node (VECC)] START | " << t.literal << endl;
+        string s;
+        while (true)
+        {
+            iss >> s;
+            if (s == TT_RBRAC)
+                break;
+            if (s == TT_LBRAC)
+                continue;
+            if (isalpha(s[0]))
+                v.push_back(Node(s));
+            else
+                v.push_back(Node(stoi(s)));
+        }
+        vec_value = v;
+        cerr << "[Node (VECC)] FINISHED | " << to_string() << endl;
+    }
+    // another way to initialize Node (VECC)
+    // used in test
     Node(vector<Node> v)
     {
         type = TT_VEC;
@@ -190,24 +218,43 @@ struct Expression
         right = rightExpr;
         cerr << "[INIT Expression Node Op] " << op->literal << endl;
     }
+    // Node Expression (INT)
     Expression(int i)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(i);
         cerr << "[INIT Expression Node INT] " << node->to_string() << endl;
     }
+    // Node Expression (VAR)
     Expression(string s)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(s);
         cerr << "[INIT Expression Node VAR] " << node->to_string() << endl;
     }
+    // Node Expression (VECC)
+    Expression(Token t)
+    {
+        // err
+        if (t.type != TT_INTERNAL_VEC_CONTAINER)
+        {
+            op = new Token();
+            node = new Node();
+            return;
+        }
+        op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
+        node = new Node(t);
+        cerr << "[INIT Expression Node VECC] " << node->to_string() << endl;
+    }
+    // another way to initialize Expression Node (VECC)
+    // used in test.
     Expression(vector<Node> vn)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(vn);
         cerr << "[INIT Expression Node VEC] " << node->to_string() << endl;
     }
+
     // err
     Expression()
     {
@@ -277,6 +324,46 @@ struct Statement
     }
 };
 
+// tokenizeVector
+// 前から読んでいく
+// 8 tokens -> 4 tokens | a + [ 1 2 3 ] ; -> a + ([ 1 2 3 ]) ;
+// 9 tokens -> 3 tokens | [ 1 a ] + [ 2 b ] -> ([ 1 a ]) + ([ 2 b ])
+// 3 tokens -> 3 tokens | a + b -> a + b
+vector<Token> tokenizeVector(vector<Token> &vt)
+{
+    vector<Token> vt2;
+    string vs;
+    bool isAdding = false;
+    for (auto t : vt)
+    {
+        if (t.type == TT_LBRAC)
+        {
+            vs = "[ "; // initialize
+            isAdding = true;
+            continue;
+        }
+        else if (t.type == TT_RBRAC)
+        {
+            vs += "]";
+            vt2.push_back(Token(TT_INTERNAL_VEC_CONTAINER, vs));
+            isAdding = false;
+            continue;
+        }
+
+        if (isAdding)
+        {
+            if (t.type == TT_NUM)
+                vs += t.literal + " ";
+            else if (t.type == TT_VAR)
+                vs += t.literal + " ";
+            // ignore TT_COMMA
+        }
+        else
+            vt2.push_back(t);
+    }
+    return vt2;
+}
+
 // parseExpr
 // 後ろから読んでいく
 // start_atは再帰で後から何文字飛ばすかを指定する、外から呼ぶときは0
@@ -284,7 +371,7 @@ struct Statement
 // `int a = 5 ;`のうち
 //     `int a =`はparseStmtで処理
 //     `5 ;`はparseExlprで処理
-//     (tokenize後なのでwhitespaceは無視して良い)
+//     (実際の処理はtokenize後なので、↑の表現においてwhitespaceは無視して良い)
 Expression *parseExpr(vector<Token> &vt, int start_at)
 {
     string s = printTokenVec(vt);
@@ -300,25 +387,9 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
             return new Expression(stoi(vt[0].literal));
         if (vt[0].type == TT_VAR)
             return new Expression(vt[0].literal);
+        if (vt[0].type == TT_INTERNAL_VEC_CONTAINER)
+            return new Expression(vt[0]);
     }
-
-    // TODO: 左からスキャンしてvecを1トークンにする関数
-
-    // // 単一vecは[ ... ];なので
-    // // TT_LBRACとTT_RBRACが1個ずつ かつ vt[0]がTT_LBRAC かつ vt[vt.size()-2]がTT_RBRAC
-    // int cntLB = 0;
-    // int cntRB = 0;
-    // for (auto t : vt)
-    // {
-    //     if (t.type == TT_LBRAC)
-    //         ++cntLB;
-    //     if (t.type == TT_RBRAC)
-    //         ++cntRB;
-    // }
-    // if (cntLB == 1 && cntRB == 1 && vt[0].type == TT_LBRAC && vt[int(vt.size()) - 2].type == TT_RBRAC)
-    // {
-    //     // TODO: vecのToken列を後からパースする関数
-    // }
 
     // 演算子がある場合
     // 末尾開始、再帰的にExpressionを作る
@@ -446,7 +517,7 @@ Statement *parseStmt(vector<Token> &vt)
         auto t = new Token(vt.at(0).type, vt.at(1).literal);
         cerr << "[parseStmt] size" << int(vt.size()) << " " << printTokenVec(vt) << endl;
         vector<Token> vt2(int(vt.size()) - 3);
-        for (int i = 0; i < int(vt.size() - 3); i++)
+        for (int i = 0; i < int(vt.size() - 3); ++i)
             vt2[i] = vt[i + 3];
         auto expr = parseExpr(vt2, 0);
         cerr << "[parseStmt] Return: " << expr->to_string() << endl;
@@ -461,7 +532,7 @@ Statement *parseStmt(vector<Token> &vt)
             s += t.literal + " ";
         cerr << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
         vector<Token> vt2(int(vt.size()) - 1);
-        for (int i = 0; i < int(vt.size() - 1); i++)
+        for (int i = 0; i < int(vt.size() - 1); ++i)
             vt2[i] = vt[i + 1];
         auto expr = parseExpr(vt2, 0);
         cerr << "[parseStmt] Return" << endl;
@@ -935,6 +1006,31 @@ bool testStmtV()
     return result;
 }
 
+bool testTokenizeVector()
+{
+    bool result = true;
+
+    auto t1 = tokenize("[ 1 , x , -3 ] + [ 9 , 8 , 13 ] + c ;");
+    result &= testS(describeTokenVec(t1), "[([) 1(NUM) ,(,) x(VAR) ,(,) -3(NUM) ](]) +(+) [([) 9(NUM) ,(,) 8(NUM) ,(,) 13(NUM) ](]) +(+) c(VAR) ;(;) ");
+    result &= testS((t1.size() == 18) ? "Size=18" : "Size!=18", "Size=18");
+    auto t2 = tokenizeVector(t1);
+    result &= testS(describeTokenVec(t2), "[ 1 x -3 ](VECC) +(+) [ 9 8 13 ](VECC) +(+) c(VAR) ;(;) ");
+    result &= testS((t2.size() == 6) ? "Size=6" : "Size!=6", "Size=6");
+
+    auto t31 = tokenize("[ 1 , x , -3 ] ;");
+    auto t32 = tokenizeVector(t31);
+    result &= testS(describeTokenVec(t32), "[ 1 x -3 ](VECC) ;(;) ");
+    result &= testS((t32.size() == 2) ? "Size=2" : "Size!=2", "Size=2");
+
+    auto n33 = Node(t32[0]);
+    result &= testS(n33.to_string(), "[ 1 x -3 ]");
+
+    auto n34 = Expression(t32[0]);
+    result &= testS(n34.to_string(), "expr([ 1 x -3 ])");
+
+    return result;
+}
+
 bool testParseExprV()
 {
     bool result = true;
@@ -984,6 +1080,7 @@ bool testVec()
     r &= testNodeV();
     r &= testExprV();
     r &= testStmtV();
+    r &= testTokenizeVector();
     // r &= testParseExprV();
     // r &= testParseStmtV();
     // r &= testEvalExprV();
