@@ -21,7 +21,7 @@ const TokenType TT_SEMICOLON = ";";
 // 変数
 const TokenType TT_VAR = "VAR";
 // 数値
-// const TokenType TT_NUM = "NUM";
+const TokenType TT_NUM = "NUM";
 // エラーを示す。Tokenのデフォルトコンストラクタもこれになる。
 const TokenType TT_ERR = "ERR";
 // Expressionにおいて、自身がNodeであることを示す。{TT_INTERNAL_NODE, left, NULL}
@@ -47,6 +47,21 @@ struct Token
         return literal + "(" + type + ")" + " ";
     }
 };
+
+string printTokenVec(vector<Token> &vt, bool simple)
+{
+    string s = "";
+    for (auto t : vt)
+    {
+        if (simple)
+            s += t.literal + " ";
+        else
+            s += t.to_string();
+    }
+    return s;
+}
+string describeTokenVec(vector<Token> &vt) { return printTokenVec(vt, false); }
+string printTokenVec(vector<Token> &vt) { return printTokenVec(vt, true); }
 
 vector<Token> tokenize(string line)
 {
@@ -86,8 +101,10 @@ vector<Token> tokenize(string line)
             t.push_back(Token(TT_COMMA, s));
         else if (s == TT_SEMICOLON)
             t.push_back(Token(TT_SEMICOLON, s));
-        else
+        else if (isalpha(s[0]))
             t.push_back(Token(TT_VAR, s));
+        else
+            t.push_back(Token(TT_NUM, s));
     }
     return t;
 }
@@ -97,7 +114,8 @@ struct Node
 {
     TokenType type;
     int int_value;
-    vector<int> vec_value;
+    string var_value;
+    vector<Node> vec_value;
 
     Node() { type = TT_ERR; }
     Node(int v)
@@ -105,22 +123,30 @@ struct Node
         type = TT_INT;
         int_value = v;
     }
-    Node(vector<int> v)
+    Node(string s)
+    {
+        type = TT_VAR;
+        var_value = s;
+    }
+    Node(vector<Node> v)
     {
         type = TT_VEC;
         vec_value = v;
     }
     string to_string()
     {
-        // TT_INT
         if (type == TT_INT)
             return std::to_string(int_value);
-        // TT_VEC
-        string s = "[ ";
-        for (auto v : vec_value)
-            s += std::to_string(v) + " ";
-        s += "]";
-        return s;
+        if (type == TT_VAR)
+            return var_value;
+        if (type == TT_VEC)
+        {
+            string s = "[ ";
+            for (auto v : vec_value)
+                s += v.to_string() + " ";
+            s += "]";
+            return s;
+        }
     }
 };
 
@@ -150,12 +176,18 @@ struct Expression
         node = new Node(i);
         // cout << "[INIT Expression Node INT] " << node->to_string() << endl;
     }
-    Expression(vector<int> vi)
+    Expression(string s)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
-        node = new Node(vi);
-        // cout << "[INIT Expression Node VEC] " << node->to_string() << endl;
+        node = new Node(s);
+        // cout << "[INIT Expression Node VAR] " << node->to_string() << endl;
     }
+    // Expression(vector<int> vi)
+    // {
+    //     op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
+    //     node = new Node(vi);
+    //     // cout << "[INIT Expression Node VEC] " << node->to_string() << endl;
+    // }
     // err
     Expression()
     {
@@ -226,13 +258,6 @@ struct Statement
     }
 };
 
-vector<Node> parseVec(vector<Token> &vt)
-{
-    for (auto v : vt)
-    {
-    }
-}
-
 // parseExpr
 // 必ず最後にセミコロンがある想定
 Expression *parseExpr(vector<Token> &vt, int start_at)
@@ -240,10 +265,15 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
     string s = printTokenVec(vt);
     cout << "[parseExpr] " << std::to_string(start_at) << " | " << s << endl;
 
+    // "5;"
+    // "-100;"
+    // "a;"
     if (vt.size() == 2)
     {
-        if (vt[0].type == TT_INT)
+        if (vt[0].type == TT_NUM)
             return new Expression(stoi(vt[0].literal));
+        if (vt[0].type == TT_VAR)
+            return new Expression(s);
         // vec
         //return new Expression(parseVec(vt[0].literal));
     }
@@ -278,22 +308,31 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
                  << "MINUS" << endl;
             expr->op = new Token(TT_MINUS, TT_MINUS);
         }
-        else if (vt[pos].type == TT_INT)
+        else if (vt[pos].type == TT_NUM || vt[pos].type == TT_VAR)
         {
-            int val = stoi(vt[pos].literal);
+            bool isVar = (vt[pos].type == TT_VAR);
+            // どちらか使う
+            int val;
+            string var;
+
+            if (isVar)
+                var = vt[pos].literal;
+            else
+                val = stoi(vt[pos].literal);
+
             if (nextIsRight)
             {
                 cout << "[parseExpr] " << start_at << " | " << pos << " | "
-                     << "RIGHT " << val << endl;
-                expr->right = new Expression(val);
+                     << "RIGHT " << (isVar ? var : std::to_string(val)) << endl;
+                expr->right = isVar ? new Expression(var) : new Expression(val);
             }
             else
             {
                 if (pos == 0)
                 {
                     cout << "[parseExpr] " << start_at << " | " << pos << " | "
-                         << "LEFT " << val << endl;
-                    expr->left = new Expression(val);
+                         << "LEFT " << (isVar ? var : std::to_string(val)) << endl;
+                    expr->left = isVar ? new Expression(var) : new Expression(val);
                     cout << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "RETURN " << expr->to_string() << endl;
                     return expr;
@@ -318,27 +357,27 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
                 }
             }
         }
-        else if (vt[pos].type == TT_VEC)
-        {
-            vector<int> val;
-            // vector<int> val = parseVec(vt[pos].literal);
-            if (nextIsRight)
-                expr->right = new Expression(val);
-            else
-            {
-                if (pos == 0)
-                {
-                    expr->left = new Expression(val);
-                    return expr;
-                }
-                else if (start_at == 0) // first loop; take care of the semicolon
-                    expr->left = parseExpr(vt, start_at + 3);
-                else
-                {
-                    expr->left = parseExpr(vt, start_at + 2);
-                }
-            }
-        }
+        // else if (vt[pos].type == TT_VEC)
+        // {
+        //     vector<int> val;
+        //     // vector<int> val = parseVec(vt[pos].literal);
+        //     if (nextIsRight)
+        //         expr->right = new Expression(val);
+        //     else
+        //     {
+        //         if (pos == 0)
+        //         {
+        //             expr->left = new Expression(val);
+        //             return expr;
+        //         }
+        //         else if (start_at == 0) // first loop; take care of the semicolon
+        //             expr->left = parseExpr(vt, start_at + 3);
+        //         else
+        //         {
+        //             expr->left = parseExpr(vt, start_at + 2);
+        //         }
+        //     }
+        // }
         --pos;
         // cout << "[parseExpr] " << start_at << " | " << pos << " | "
         //      << "POS-- | " << pos << endl;
@@ -543,21 +582,6 @@ int main1()
     return 0;
 }
 
-string printTokenVec(vector<Token> &vt, bool simple)
-{
-    string s = "";
-    for (auto t : vt)
-    {
-        if (simple)
-            s += t.literal + " ";
-        else
-            s += t.to_string();
-    }
-    return s;
-}
-string describeTokenVec(vector<Token> &vt) { return printTokenVec(vt, false); }
-string printTokenVec(vector<Token> &vt) { return printTokenVec(vt, true); }
-
 // #define testS(expr, result) cout << (((expr) == (result)) ? "OK" : "NG") << ": " << (expr) << endl;
 
 bool testS(string got, string want)
@@ -572,21 +596,30 @@ bool testTokenize()
     bool result = true;
 
     auto v0 = tokenize("int a = 123 ;");
-    result &= testS(describeTokenVec(v0), "int(int) a(VAR) =(=) 123(VAR) ;(;) ");
+    result &= testS(describeTokenVec(v0), "int(int) a(VAR) =(=) 123(NUM) ;(;) ");
 
     auto v1 = tokenize("vec v = [ 1 , 2 , -3 ] ;");
-    result &= testS(describeTokenVec(v1), "vec(vec) v(VAR) =(=) [([) 1(VAR) ,(,) 2(VAR) ,(,) -3(VAR) ](]) ;(;) ");
+    result &= testS(describeTokenVec(v1), "vec(vec) v(VAR) =(=) [([) 1(NUM) ,(,) 2(NUM) ,(,) -3(NUM) ](]) ;(;) ");
 
     auto v2 = tokenize("int b = a + 1000 ;");
-    result &= testS(describeTokenVec(v2), "int(int) b(VAR) =(=) a(VAR) +(+) 1000(VAR) ;(;) ");
+    result &= testS(describeTokenVec(v2), "int(int) b(VAR) =(=) a(VAR) +(+) 1000(NUM) ;(;) ");
     return result;
 }
 
 bool testNode()
 {
-    auto n1 = Node(5);
-    auto n2 = Node(vector<int>{1, 2, -3, 4, 5});
-    return testS(n1.to_string(), "5") && testS(n2.to_string(), "[ 1 2 -3 4 5 ]");
+    bool result = true;
+
+    auto n0 = Node(5);
+    result &= testS(n0.to_string(), "5");
+
+    auto n1 = Node("a");
+    result &= testS(n1.to_string(), "a");
+
+    // auto n2 = Node(vector<int>{1, 2, -3, 4, 5});
+    // result &= testS(n2.to_string(), "[ 1 2 -3 4 5 ]");
+
+    return result;
 }
 
 bool testExpr()
@@ -594,12 +627,20 @@ bool testExpr()
     bool result = true;
 
     auto e1 = Expression(5);
-    auto e2 = Expression(vector<int>{1, 2, -3, 4, 5});
-    result &= testS(e1.to_string(), "expr(5)") && testS(e2.to_string(), "expr([ 1 2 -3 4 5 ])");
+    result &= testS(e1.to_string(), "expr(5)");
 
-    auto e3 = Expression(10);
-    auto e4 = Expression(new Token(TT_PLUS, TT_PLUS), &e1, &e2);
-    result &= testS(e4.to_string(), "expr(expr(5)+expr([ 1 2 -3 4 5 ]))");
+    auto e2 = Expression("a");
+    result &= testS(e2.to_string(), "expr(a)");
+
+    auto e21 = Expression(new Token(TT_PLUS, TT_PLUS), &e1, &e2);
+    result &= testS(e21.to_string(), "expr(expr(5)+expr(a))");
+
+    // auto e2 = Expression(vector<int>{1, 2, -3, 4, 5});
+    // result &= testS(e2.to_string(), "expr([ 1 2 -3 4 5 ])");
+
+    // auto e3 = Expression(10);
+    // auto e4 = Expression(new Token(TT_PLUS, TT_PLUS), &e1, &e2);
+    // result &= testS(e4.to_string(), "expr(expr(5)+expr([ 1 2 -3 4 5 ]))");
     return result;
 }
 
@@ -612,10 +653,10 @@ bool testStmt()
     auto s1 = Statement(&s1t, &s1e);
     result &= testS(s1.to_string(), "stmt(int a = expr(5))");
 
-    auto s2t = Token(TT_PVEC, TT_PVEC);
-    auto s2e = Expression(vector<int>{1, 2, -3, 4, 5});
-    auto s2 = Statement(&s2t, &s2e);
-    result &= testS(s2.to_string(), "stmt(print_vec expr([ 1 2 -3 4 5 ]))");
+    // auto s2t = Token(TT_PVEC, TT_PVEC);
+    // auto s2e = Expression(vector<int>{1, 2, -3, 4, 5});
+    // auto s2 = Statement(&s2t, &s2e);
+    // result &= testS(s2.to_string(), "stmt(print_vec expr([ 1 2 -3 4 5 ]))");
     return result;
 }
 
@@ -623,21 +664,26 @@ bool testParseExpr()
 {
     bool result = true;
 
-    vector<Token> t0{Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t0{Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
     auto e0 = parseExpr(t0, 0);
     result &= testS(e0->to_string(), "expr(123)");
 
-    vector<Token> t1{Token(TT_INT, "1"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "10"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t1{Token(TT_NUM, "1"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "10"), Token(TT_SEMICOLON, ";")};
     auto e1 = parseExpr(t1, 0);
     result &= testS(e1->to_string(), "expr(expr(1)+expr(10))");
 
-    vector<Token> t2{Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t2{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_SEMICOLON, ";")};
     auto e2 = parseExpr(t2, 0);
     result &= testS(e2->to_string(), "expr(expr(expr(5)+expr(50))-expr(500))");
 
-    vector<Token> t3{Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t3{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
     auto e3 = parseExpr(t3, 0);
     result &= testS(e3->to_string(), "expr(expr(expr(expr(5)+expr(50))-expr(500))-expr(5000))");
+
+    vector<Token> t4{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_VAR, "a"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
+    auto e4 = parseExpr(t4, 0);
+    result &= testS(e4->to_string(), "expr(expr(expr(expr(5)+expr(a))-expr(500))-expr(5000))");
+
     // vector<Token> t3{Token(TT_VEC, "[ 1 , 2 , -3 , 4 , 5 ]"), Token(TT_PLUS, TT_PLUS), Token(TT_VEC, "[ 5 , 4 , -3 , 2 , 1 ]")};
     // auto e3 = parseExpr(t1, 0);
     // result &= testS(e3->to_string(), "expr(expr(1)+expr(10))");
@@ -649,21 +695,29 @@ bool testParseStmt()
 {
     bool result = true;
 
-    vector<Token> t0{Token(TT_INT, TT_INT), Token(TT_VAR, "a"), Token(TT_EQ, TT_EQ), Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t0{Token(TT_INT, TT_INT), Token(TT_VAR, "a"), Token(TT_EQ, TT_EQ), Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
     auto s0 = parseStmt(t0);
     result &= testS(s0->to_string(), "stmt(int a = expr(123))");
 
-    vector<Token> t1{Token(TT_INT, TT_INT), Token(TT_VAR, "b"), Token(TT_EQ, TT_EQ), Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t1{Token(TT_INT, TT_INT), Token(TT_VAR, "b"), Token(TT_EQ, TT_EQ), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
     auto s1 = parseStmt(t1);
     result &= testS(s1->to_string(), "stmt(int b = expr(expr(expr(expr(5)+expr(50))-expr(500))-expr(5000)))");
 
-    vector<Token> t2{Token(TT_PINT, TT_PINT), Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t11{Token(TT_INT, TT_INT), Token(TT_VAR, "b"), Token(TT_EQ, TT_EQ), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_VAR, "a"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
+    auto s11 = parseStmt(t11);
+    result &= testS(s11->to_string(), "stmt(int b = expr(expr(expr(expr(5)+expr(a))-expr(500))-expr(5000)))");
+
+    vector<Token> t2{Token(TT_PINT, TT_PINT), Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
     auto s2 = parseStmt(t2);
     result &= testS(s2->to_string(), "stmt(print_int expr(123))");
 
-    vector<Token> t3{Token(TT_PINT, TT_PINT), Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t3{Token(TT_PINT, TT_PINT), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
     auto s3 = parseStmt(t3);
     result &= testS(s3->to_string(), "stmt(print_int expr(expr(expr(expr(5)+expr(50))-expr(500))-expr(5000)))");
+
+    vector<Token> t31{Token(TT_PINT, TT_PINT), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_VAR, "a"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
+    auto s31 = parseStmt(t31);
+    result &= testS(s31->to_string(), "stmt(print_int expr(expr(expr(expr(5)+expr(a))-expr(500))-expr(5000)))");
 
     return result;
 }
@@ -728,7 +782,16 @@ bool testEval()
 }
 bool test()
 {
-    return testTokenize() && testNode() && testExpr() && testStmt() && testParseExpr() && testParseStmt() && testEvalExpr() && testEval();
+    bool r = true;
+    r &= testTokenize();
+    r &= testNode();
+    r &= testExpr();
+    r &= testStmt();
+    r &= testParseExpr();
+    r &= testParseStmt();
+    // r &= testEvalExpr();
+    // r &= testEval();
+    return r;
 }
 
 int main()
