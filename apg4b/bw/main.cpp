@@ -174,7 +174,7 @@ struct Node
         cerr << "[Node (VECC)] FINISHED | " << to_string() << endl;
     }
     // another way to initialize Node (VECC)
-    // used in test
+    // used in evalExpr and tests
     Node(vector<Node> v)
     {
         type = TT_VEC;
@@ -247,7 +247,7 @@ struct Expression
         cerr << "[INIT Expression Node VECC] " << node->to_string() << endl;
     }
     // another way to initialize Expression Node (VECC)
-    // used in test.
+    // used in evalExpr and tests
     Expression(vector<Node> vn)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
@@ -437,11 +437,10 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
         }
         else if (vt[pos].type == TT_NUM || vt[pos].type == TT_INTERNAL_VEC_CONTAINER || vt[pos].type == TT_VAR)
         {
-            bool isVar = (vt[pos].type == TT_VAR);
             // INTかVARかVECCかわからないので、全部用意しておく
             int val;
             string var;
-            string vecc;
+            Token vecc;
 
             auto typ = vt[pos].type;
             if (typ == TT_VAR)
@@ -449,7 +448,7 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
             else if (typ == TT_NUM)
                 val = stoi(vt[pos].literal);
             else if (typ == TT_INTERNAL_VEC_CONTAINER)
-                vecc = vt[pos].literal;
+                vecc = vt[pos];
 
             if (nextIsRight)
             {
@@ -557,6 +556,26 @@ void resolveVar(Expression *expr, Variables *vars)
     }
 }
 
+// resolveVarsInVec
+// [ 1 2 x 4 ] 左から変数を解決しながら巡回する
+void resolveVarsInVec(Node *vn, Variables *vars)
+{
+    if (vn->type == TT_VEC)
+    {
+        cerr << "[evalExpr] VEC(RESOLVE) | " << vn->to_string() << endl;
+        for (int i = 0; i < vn->vec_value.size(); i++)
+        {
+            if (vn->vec_value[i].type == TT_VAR)
+            {
+                auto k = vn->vec_value[i].var_value;
+                auto v = (*vars)[k];
+                vn->vec_value[i] = Node(v.int_value);
+            }
+        }
+        cerr << "[evalExpr] NODE(RESOLVED) | " << vn->to_string() << endl;
+    }
+}
+
 void evalExpr(Expression *expr, Variables *vars)
 {
     cerr << "[evalExpr] START | " << expr->to_string() << endl;
@@ -598,42 +617,42 @@ void evalExpr(Expression *expr, Variables *vars)
     // vec内の変数はここでは解決しない
     resolveVar(expr->left, vars);
     resolveVar(expr->right, vars);
-    // intの足し算
-    if (expr->op->type == TT_PLUS && expr->left->node->type == TT_INT)
+    if (expr->left->node->type == TT_INT)
     {
-        auto val = expr->left->node->int_value + expr->right->node->int_value;
+        int val;
+        if (expr->op->type == TT_PLUS)
+            val = expr->left->node->int_value + expr->right->node->int_value;
+        else if (expr->op->type == TT_MINUS)
+            val = expr->left->node->int_value - expr->right->node->int_value;
         auto expr2 = new Expression(val);
-        cerr << "[evalExpr] PLUS | " << expr2->to_string() << endl;
-        // expr = expr2; // XXX: これなんでダメ？
+        cerr << "[evalExpr] " << ((expr->op->type == TT_PLUS) ? "PLUS" : "MINUS")
+             << " | " << expr2->to_string() << endl;
         expr->left = NULL;
         expr->right = NULL;
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         expr->node = new Node(val);
     }
-    // intの引き算
-    else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_INT)
+    else if (expr->left->node->type == TT_VEC)
     {
-        auto val = expr->left->node->int_value - expr->right->node->int_value;
+        vector<Node> val;
+        // vec内の変数を解決する
+        resolveVarsInVec(expr->left->node, vars);
+        resolveVarsInVec(expr->right->node, vars);
+        // 要素ごとに引き算して結果をvalに格納
+        if (expr->op->type == TT_PLUS)
+            for (int i = 0; i < expr->left->node->vec_value.size(); i++)
+                val.push_back(Node(expr->left->node->vec_value[i].int_value + expr->right->node->vec_value[i].int_value));
+        else if (expr->op->type == TT_MINUS)
+            for (int i = 0; i < expr->left->node->vec_value.size(); i++)
+                val.push_back(Node(expr->left->node->vec_value[i].int_value - expr->right->node->vec_value[i].int_value));
+
         auto expr2 = new Expression(val);
-        cerr << "[evalExpr] MINUS | " << expr2->to_string() << endl;
+        cerr << "[evalExpr] " << ((expr->op->type == TT_PLUS) ? "PLUS" : "MINUS")
+             << " | " << expr2->to_string() << endl;
         expr->left = NULL;
         expr->right = NULL;
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         expr->node = new Node(val);
-    }
-    // vecの足し算
-    else if (expr->op->type == TT_PLUS && expr->left->node->type == TT_VEC)
-    {
-        // TODO
-        cout << "not implemented" << endl;
-        exit(1);
-    }
-    // vecの引き算
-    else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_VEC)
-    {
-        // TODO
-        cout << "not implemented" << endl;
-        exit(1);
     }
 }
 
@@ -858,7 +877,6 @@ bool testEvalExpr()
     // test the map
     m["a"] = Node(321);
     result &= testS(m["a"].to_string(), "321");
-    result &= testS((*(&m))["a"].to_string(), "321");
 
     vector<Token> t4{Token(TT_VAR, "a"), Token(TT_SEMICOLON, ";")};
     auto e4 = parseExpr(t4, 0);
@@ -1081,6 +1099,49 @@ bool testParseStmtV()
     return result;
 }
 
+bool testEvalExprV()
+{
+    bool result = true;
+
+    Variables m;
+
+    auto t0 = tokenize("[ 1 , 2 , -3 ] ;");
+    t0 = tokenizeVector(t0);
+    auto e0 = parseExpr(t0, 0);
+    evalExpr(e0, &m);
+    result &= testS(e0->to_string(), "expr([ 1 2 -3 ])");
+
+    auto t1 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] ;");
+    t1 = tokenizeVector(t1);
+    auto e1 = parseExpr(t1, 0);
+    evalExpr(e1, &m);
+    result &= testS(e1->to_string(), "expr([ 10 10 10 ])");
+
+    auto t2 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] ;");
+    t2 = tokenizeVector(t2);
+    auto e2 = parseExpr(t2, 0);
+    evalExpr(e2, &m);
+    result &= testS(e2->to_string(), "expr([ 0 0 0 ])");
+
+    auto t3 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , 10 , 10 ] - [ -100 , -200 , -300 ] ;");
+    t3 = tokenizeVector(t3);
+    auto e3 = parseExpr(t3, 0);
+    evalExpr(e3, &m);
+    result &= testS(e3->to_string(), "expr([ 100 200 300 ])");
+
+    m["x"] = Node(10);
+    result &= testS(m["x"].to_string(), "10");
+    m["y"] = Node(Token(TT_INTERNAL_VEC_CONTAINER, "[ 100 200 300 ]"));
+    result &= testS(m["y"].to_string(), "[ 100 200 300 ]");
+
+    auto t4 = tokenize("[ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    t4 = tokenizeVector(t4);
+    auto e4 = parseExpr(t4, 0);
+    evalExpr(e4, &m);
+    result &= testS(e4->to_string(), "expr([ 100 200 300 ])");
+
+    return result;
+}
 bool testNum()
 {
     bool r = true;
@@ -1106,7 +1167,7 @@ bool testVec()
     r &= testTokenizeVector();
     r &= testParseExprV();
     r &= testParseStmtV();
-    // r &= testEvalExprV();
+    r &= testEvalExprV();
     // r &= testEvalV();
     // r &= testEvalTokenStrV();
     return r;
@@ -1114,8 +1175,8 @@ bool testVec()
 
 int main()
 {
-    // HACK: disable cerr
-    // cerr.setstate(std::ios::failbit);
+    // HACK: disable cerr (trace info)
+    cerr.setstate(std::ios::failbit);
     if (!(testNum() && testVec()))
     {
         cout << "test failed" << endl;
