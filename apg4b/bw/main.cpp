@@ -273,7 +273,7 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
         if (vt[0].type == TT_NUM)
             return new Expression(stoi(vt[0].literal));
         if (vt[0].type == TT_VAR)
-            return new Expression(s);
+            return new Expression(vt[0].literal);
         // vec
         //return new Expression(parseVec(vt[0].literal));
     }
@@ -398,7 +398,7 @@ Statement *parseStmt(vector<Token> &vt)
         for (int i = 0; i < int(vt.size() - 3); i++)
             vt2[i] = vt[i + 3];
         auto expr = parseExpr(vt2, 0);
-        cout << "[parseStmt] Return" << endl;
+        cout << "[parseStmt] Return: " << expr->to_string() << endl;
         return new Statement(t, expr);
     }
     else if (vt.at(0).type == TT_VEC)
@@ -436,7 +436,24 @@ Statement *parseStmt(vector<Token> &vt)
     return new Statement(t, expr);
 };
 
-void evalExpr(Expression *expr)
+// resolveVar
+// int a = b はbを解決したものをaにコピーする
+// なので、Variablesに変数は入っていない
+void resolveVar(Expression *expr, Variables *vars)
+{
+    if (expr->node->type == TT_VAR)
+    {
+        auto n = (*vars)[expr->node->var_value];
+        cout << "[evalExpr] NODE(RESOLVE) | " << (expr->node->var_value) << " -> " << n.to_string() << endl;
+        // if (n.type == TT_INT)
+        //     expr->node = new Node(n.int_value);
+        // ポインタ代入でよさそう？(SEGVにならない)
+        expr->node = &(*vars)[expr->node->var_value];
+        cout << "[evalExpr] NODE(RESOLVED) | " << expr->to_string() << endl;
+    }
+}
+
+void evalExpr(Expression *expr, Variables *vars)
 {
     cout << "[evalExpr] START | " << expr->to_string() << endl;
     // cout << "CHECK NULL" << endl;
@@ -451,25 +468,29 @@ void evalExpr(Expression *expr)
     // cout << "CHECKED NULL" << endl;
     // cout << expr->op->type << endl;
 
-    // recursion
+    // 自身がNodeなら終わり
+    // (print_int a)のaとか
     if (expr->op->type == TT_INTERNAL_NODE)
     {
         cout << "[evalExpr] NODE | " << expr->to_string() << endl;
+        resolveVar(expr, vars);
         return;
     }
+    // leftがNodeじゃなければ再帰
+    // (a+b+c)のcとか
     if (expr->left->op->type != TT_INTERNAL_NODE)
     {
         cout << "[evalExpr] RECURSION | " << expr->left->to_string() << endl;
-        evalExpr(expr->left);
+        evalExpr(expr->left, vars);
     }
     // err check
     if (expr->left->op->type != TT_INTERNAL_NODE || expr->right->op->type != TT_INTERNAL_NODE)
         cout << "[evalExpr] ERR | not TT_INTERNAL_NODE";
-    if (expr->left->node->type != expr->right->node->type)
-        cout << "[evalExpr] ERR | Node.type unmatch";
 
     cout << "[evalExpr] CALC | " << expr->to_string() << endl;
-
+    // 計算する前に変数を解決する
+    resolveVar(expr->left, vars);
+    resolveVar(expr->right, vars);
     if (expr->op->type == TT_PLUS && expr->left->node->type == TT_INT)
     {
         auto val = expr->left->node->int_value + expr->right->node->int_value;
@@ -491,12 +512,12 @@ void evalExpr(Expression *expr)
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         expr->node = new Node(val);
     }
-    else if (expr->op->type == TT_PLUS && expr->left->node->type == TT_VEC)
-    {
-    }
-    else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_VEC)
-    {
-    }
+    // else if (expr->op->type == TT_PLUS && expr->left->node->type == TT_VEC)
+    // {
+    // }
+    // else if (expr->op->type == TT_MINUS && expr->left->node->type == TT_VEC)
+    // {
+    // }
 }
 
 // evaluate
@@ -509,7 +530,7 @@ string evaluate(Statement *stmt, Variables *vars)
     cout << "[evaluate] " << stmt->to_string() << endl;
     if (stmt->var->type == TT_INT)
     {
-        evalExpr(stmt->expr);
+        evalExpr(stmt->expr, vars);
         if (stmt->expr->op->type == TT_ERR)
             return TT_ERR;
         cout << "[evaluate] SET VALUE " << stmt->expr->node->to_string() << " TO KEY " << stmt->var->literal << endl;
@@ -517,28 +538,28 @@ string evaluate(Statement *stmt, Variables *vars)
         cout << "[evaluate] SET" << endl;
         return "";
     }
-    else if (stmt->var->type == TT_VEC)
-    {
-        evalExpr(stmt->expr);
-        if (stmt->expr->op->type == TT_ERR)
-            return TT_ERR;
-        (*vars)[stmt->var->literal] = *stmt->expr->node;
-        return "";
-    }
+    // else if (stmt->var->type == TT_VEC)
+    // {
+    //     evalExpr(stmt->expr);
+    //     if (stmt->expr->op->type == TT_ERR)
+    //         return TT_ERR;
+    //     (*vars)[stmt->var->literal] = *stmt->expr->node;
+    //     return "";
+    // }
     else if (stmt->var->type == TT_PINT)
     {
-        evalExpr(stmt->expr);
+        evalExpr(stmt->expr, vars);
         if (stmt->expr->op->type == TT_ERR || stmt->expr->node->type == TT_ERR)
             return TT_ERR;
         return stmt->expr->node->to_string();
     }
-    else if (stmt->var->type == TT_PVEC)
-    {
-        evalExpr(stmt->expr);
-        if (stmt->expr->op->type == TT_ERR || stmt->expr->node->type == TT_ERR)
-            return TT_ERR;
-        return stmt->expr->node->to_string();
-    }
+    // else if (stmt->var->type == TT_PVEC)
+    // {
+    //     evalExpr(stmt->expr);
+    //     if (stmt->expr->op->type == TT_ERR || stmt->expr->node->type == TT_ERR)
+    //         return TT_ERR;
+    //     return stmt->expr->node->to_string();
+    // }
     return TT_ERR;
 }
 
@@ -570,11 +591,11 @@ int main1()
     //     }
     //     cout << endl;
     // }
-    Variables *pvars;
+    Variables pvars;
     rep(i, N)
     {
         auto stmt = parseStmt(tokens[i]);
-        auto result = evaluate(stmt, pvars);
+        auto result = evaluate(stmt, &pvars);
         if (result != "")
             cout << result << endl;
     }
@@ -615,6 +636,8 @@ bool testNode()
 
     auto n1 = Node("a");
     result &= testS(n1.to_string(), "a");
+    result &= testS(n1.type, TT_VAR);
+    result &= testS(n1.var_value, "a");
 
     // auto n2 = Node(vector<int>{1, 2, -3, 4, 5});
     // result &= testS(n2.to_string(), "[ 1 2 -3 4 5 ]");
@@ -726,25 +749,45 @@ bool testEvalExpr()
 {
     bool result = true;
 
-    vector<Token> t0{Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
+    Variables m;
+
+    vector<Token> t0{Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
     auto e0 = parseExpr(t0, 0);
-    evalExpr(e0);
+    evalExpr(e0, &m);
     result &= testS(e0->to_string(), "expr(123)");
 
-    vector<Token> t1{Token(TT_INT, "1"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "10"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t1{Token(TT_NUM, "1"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "10"), Token(TT_SEMICOLON, ";")};
     auto e1 = parseExpr(t1, 0);
-    evalExpr(e1);
+    evalExpr(e1, &m);
     result &= testS(e1->to_string(), "expr(11)");
 
-    vector<Token> t2{Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t2{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_SEMICOLON, ";")};
     auto e2 = parseExpr(t2, 0);
-    evalExpr(e2);
+    evalExpr(e2, &m);
     result &= testS(e2->to_string(), "expr(-445)");
 
-    vector<Token> t3{Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t3{Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
     auto e3 = parseExpr(t3, 0);
-    evalExpr(e3);
+    evalExpr(e3, &m);
     result &= testS(e3->to_string(), "expr(-5445)");
+
+    // with var
+
+    // test the map
+    m["a"] = Node(321);
+    result &= testS(m["a"].to_string(), "321");
+    result &= testS((*(&m))["a"].to_string(), "321");
+
+    vector<Token> t4{Token(TT_VAR, "a"), Token(TT_SEMICOLON, ";")};
+    auto e4 = parseExpr(t4, 0);
+    evalExpr(e4, &m);
+    result &= testS(e4->to_string(), "expr(321)");
+
+    m["b"] = Node(100000);
+    vector<Token> t5{Token(TT_VAR, "a"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "-321"), Token(TT_MINUS, TT_MINUS), Token(TT_VAR, "b"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "5000"), Token(TT_SEMICOLON, ";")};
+    auto e5 = parseExpr(t5, 0);
+    evalExpr(e5, &m);
+    result &= testS(e5->to_string(), "expr(-105000)");
 
     return result;
 }
@@ -755,29 +798,51 @@ bool testEval()
 
     Variables m;
 
-    vector<Token> t0{Token(TT_INT, TT_INT), Token(TT_VAR, "a"), Token(TT_EQ, TT_EQ), Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
+    // print_int 123 ;
+    vector<Token> t01{Token(TT_PINT, TT_PINT), Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
+    auto s01 = parseStmt(t01);
+    result &= testS(evaluate(s01, &m), "123");
+
+    // print_int a ;
+    m["a"] = Node(321);
+    vector<Token> t02{Token(TT_PINT, TT_PINT), Token(TT_VAR, "a"), Token(TT_SEMICOLON, ";")};
+    auto s02 = parseStmt(t02);
+    result &= testS(evaluate(s02, &m), "321");
+
+    // int a = 123 ;
+    vector<Token> t0{Token(TT_INT, TT_INT), Token(TT_VAR, "a"), Token(TT_EQ, TT_EQ), Token(TT_NUM, "123"), Token(TT_SEMICOLON, ";")};
     auto s0 = parseStmt(t0);
     auto r0 = evaluate(s0, &m);
     result &= testS(r0, "");
     result &= testS(m["a"].to_string(), Node(123).to_string());
 
-    vector<Token> t1{Token(TT_INT, TT_INT), Token(TT_VAR, "b"), Token(TT_EQ, TT_EQ), Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    // int b = 5 + 50 - 500 - a ;
+    vector<Token> t1{Token(TT_INT, TT_INT), Token(TT_VAR, "b"), Token(TT_EQ, TT_EQ), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_VAR, "a"), Token(TT_SEMICOLON, ";")};
     auto s1 = parseStmt(t1);
     auto r1 = evaluate(s1, &m);
     result &= testS(r1, "");
-    result &= testS(m["b"].to_string(), Node(-5445).to_string());
+    result &= testS(m["b"].to_string(), Node(-568).to_string());
 
-    vector<Token> t2{Token(TT_PINT, TT_PINT), Token(TT_INT, "123"), Token(TT_SEMICOLON, ";")};
-    auto s2 = parseStmt(t2);
-    auto r2 = evaluate(s2, &m);
-    result &= testS(r2, "123");
-
-    vector<Token> t3{Token(TT_PINT, TT_PINT), Token(TT_INT, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_INT, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_INT, "5000"), Token(TT_SEMICOLON, ";")};
+    vector<Token> t3{Token(TT_PINT, TT_PINT), Token(TT_NUM, "5"), Token(TT_PLUS, TT_PLUS), Token(TT_NUM, "50"), Token(TT_MINUS, TT_MINUS), Token(TT_NUM, "500"), Token(TT_MINUS, TT_MINUS), Token(TT_VAR, "a"), Token(TT_SEMICOLON, ";")};
     auto s3 = parseStmt(t3);
-    auto r3 = evaluate(s3, &m);
-    result &= testS(r3, "-5445");
+    result &= testS(evaluate(s3, &m), "-568");
 
-    // TODO: 変数名解決
+    return result;
+}
+
+bool testEvalTokenStr()
+{
+    bool result = true;
+
+    Variables m;
+    auto v0 = tokenize("int a = 123 ;");
+    result &= testS(describeTokenVec(v0), "int(int) a(VAR) =(=) 123(NUM) ;(;) ");
+    auto s0 = parseStmt(v0);
+    result &= testS(s0->to_string(), "stmt(int a = expr(123))");
+    auto r0 = evaluate(s0, &m);
+    result &= testS(r0, "");
+    result &= testS(m["a"].to_string(), Node(123).to_string());
+
     return result;
 }
 bool test()
@@ -789,8 +854,9 @@ bool test()
     r &= testStmt();
     r &= testParseExpr();
     r &= testParseStmt();
-    // r &= testEvalExpr();
-    // r &= testEval();
+    r &= testEvalExpr();
+    r &= testEval();
+    r &= testEvalTokenStr();
     return r;
 }
 
@@ -801,6 +867,6 @@ int main()
         cerr << "failed" << endl;
         return 1;
     }
-    // main1();
+    main1();
     return 0;
 }
