@@ -579,17 +579,6 @@ void resolveVarsInVec(Node *vn, Variables *vars)
 void evalExpr(Expression *expr, Variables *vars)
 {
     cerr << "[evalExpr] START | " << expr->to_string() << endl;
-    // cerr << "CHECK NULL" << endl;
-    // if (expr->op == NULL)
-    //     cerr << "expr->op == NULL" << endl;
-    // if (expr->node == NULL)
-    //     cerr << "expr->node == NULL" << endl;
-    // if (expr->left == NULL)
-    //     cerr << "expr->left == NULL" << endl;
-    // if (expr->right == NULL)
-    //     cerr << "expr->right == NULL" << endl;
-    // cerr << "CHECKED NULL" << endl;
-    // cerr << expr->op->type << endl;
 
     // 自身がNodeなら終わり
     // `expr(a)`
@@ -1142,6 +1131,50 @@ bool testEvalExprV()
 
     return result;
 }
+
+bool testEvalTokenStrV()
+{
+    bool result = true;
+
+    Variables m;
+
+    auto v0 = tokenize("vec a = [ 1 2 3 ] ;");
+    auto s0 = parseStmt(v0);
+    auto r0 = evaluate(s0, &m);
+    result &= testS(r0, "");
+    result &= testS(m["a"].to_string(), "[ 1 2 3 ]");
+
+    auto v1 = tokenize("print_vec a ;");
+    auto s1 = parseStmt(v1);
+    auto r1 = evaluate(s1, &m);
+    result &= testS(r1, "[ 1 2 3 ]");
+    result &= testS(m["a"].to_string(), "[ 1 2 3 ]");
+
+    m["x"] = Node(10);
+    result &= testS(m["x"].to_string(), "10");
+    m["y"] = Node(Token(TT_INTERNAL_VEC_CONTAINER, "[ 100 200 300 ]"));
+    result &= testS(m["y"].to_string(), "[ 100 200 300 ]");
+
+    auto v2 = tokenize("print_vec [ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    auto s2 = parseStmt(v2);
+    auto r2 = evaluate(s2, &m);
+    result &= testS(r2, "[ 100 200 300 ]");
+    result &= testS(m["x"].to_string(), "10");
+    result &= testS(m["y"].to_string(), "[ 100 200 300 ]");
+
+    auto v3 = tokenize("vec b = [ 1 , 2 , -3 ] + [ 9 , 8 , 13 ] - [ 10 , x , 10 ] + y ;");
+    auto s3 = parseStmt(v3);
+    auto r3 = evaluate(s3, &m);
+    result &= testS(r3, "");
+    result &= testS(m["b"].to_string(), "[ 100 200 300 ]");
+    // 念の為再チェック
+    result &= testS(m["x"].to_string(), "10");
+    result &= testS(m["y"].to_string(), "[ 100 200 300 ]");
+    result &= testS(m["a"].to_string(), "[ 1 2 3 ]");
+
+    return result;
+}
+
 bool testNum()
 {
     bool r = true;
@@ -1168,16 +1201,17 @@ bool testVec()
     r &= testParseExprV();
     r &= testParseStmtV();
     r &= testEvalExprV();
-    // r &= testEvalV();
-    // r &= testEvalTokenStrV();
+    // testEval() はわざわざやらなくてもよさそう
+    r &= testEvalTokenStrV();
     return r;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     // HACK: disable cerr (trace info)
     cerr.setstate(std::ios::failbit);
-    if (!(testNum() && testVec()))
+    // 何かコマンドライン引数を入れたらテストもやる
+    if (argc > 2 && !(testNum() && testVec()))
     {
         cout << "test failed" << endl;
         return 1;
