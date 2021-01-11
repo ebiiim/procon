@@ -71,7 +71,7 @@ vector<Token> tokenize(string line)
     while (true)
     {
         iss >> s;
-        // cout << "[tokenize] " << s << endl;
+        // cerr << "[tokenize] " << s << endl;
         if (s == TT_SEMICOLON)
         {
             t.push_back(Token(TT_SEMICOLON, s));
@@ -147,6 +147,7 @@ struct Node
             s += "]";
             return s;
         }
+        return TT_ERR;
     }
 };
 
@@ -168,25 +169,25 @@ struct Expression
         op = oper;
         left = leftExpr;
         right = rightExpr;
-        // cout << "[INIT Expression Node Op] " << op->literal << endl;
+        // cerr << "[INIT Expression Node Op] " << op->literal << endl;
     }
     Expression(int i)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(i);
-        // cout << "[INIT Expression Node INT] " << node->to_string() << endl;
+        // cerr << "[INIT Expression Node INT] " << node->to_string() << endl;
     }
     Expression(string s)
     {
         op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
         node = new Node(s);
-        // cout << "[INIT Expression Node VAR] " << node->to_string() << endl;
+        // cerr << "[INIT Expression Node VAR] " << node->to_string() << endl;
     }
     // Expression(vector<int> vi)
     // {
     //     op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
     //     node = new Node(vi);
-    //     // cout << "[INIT Expression Node VEC] " << node->to_string() << endl;
+    //     // cerr << "[INIT Expression Node VEC] " << node->to_string() << endl;
     // }
     // err
     Expression()
@@ -206,22 +207,22 @@ struct Expression
     ~Expression()
     {
         // string s = to_string();
-        // cout << "[DELETE] " << s << endl;
-        // cout << "[DELETE] " << s << " op" << endl;
+        // cerr << "[DELETE] " << s << endl;
+        // cerr << "[DELETE] " << s << " op" << endl;
         // delete op;
-        // cout << "[DELETE] " << s << " op"
+        // cerr << "[DELETE] " << s << " op"
         //      << " OK " << endl;
-        // cout << "[DELETE] " << s << " node" << endl;
+        // cerr << "[DELETE] " << s << " node" << endl;
         // delete node;
-        // cout << "[DELETE] " << s << " node"
+        // cerr << "[DELETE] " << s << " node"
         //      << " OK " << endl;
-        // cout << "[DELETE] " << s << " left" << endl;
+        // cerr << "[DELETE] " << s << " left" << endl;
         // delete left;
-        // cout << "[DELETE] " << s << " left"
+        // cerr << "[DELETE] " << s << " left"
         //      << " OK " << endl;
-        // cout << "[DELETE] " << s << " right" << endl;
+        // cerr << "[DELETE] " << s << " right" << endl;
         // delete right;
-        // cout << "[DELETE] " << s << " right"
+        // cerr << "[DELETE] " << s << " right"
         //      << " OK " << endl;
     }
 };
@@ -242,7 +243,7 @@ struct Statement
     }
     string to_string()
     {
-        // cout << "[Statement.to_string]" << endl;
+        // cerr << "[Statement.to_string]" << endl;
         string s = "stmt(";
         if (var->type == TT_INT || var->type == TT_VEC)
             s += var->type + " " + var->literal + " = " + expr->to_string();
@@ -263,7 +264,7 @@ struct Statement
 Expression *parseExpr(vector<Token> &vt, int start_at)
 {
     string s = printTokenVec(vt);
-    cout << "[parseExpr] " << std::to_string(start_at) << " | " << s << endl;
+    cerr << "[parseExpr] " << std::to_string(start_at) << " | " << s << endl;
 
     // "5;"
     // "-100;"
@@ -292,19 +293,19 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
 
         if (vt[pos].type == TT_SEMICOLON)
         {
-            cout << "[parseExpr] " << start_at << " | " << pos << " | "
+            cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                  << "SEMICOLON" << endl;
             // ignore semicolons;
         }
         else if (vt[pos].type == TT_PLUS)
         {
-            cout << "[parseExpr] " << start_at << " | " << pos << " | "
+            cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                  << "PLUS" << endl;
             expr->op = new Token(TT_PLUS, TT_PLUS);
         }
         else if (vt[pos].type == TT_MINUS)
         {
-            cout << "[parseExpr] " << start_at << " | " << pos << " | "
+            cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                  << "MINUS" << endl;
             expr->op = new Token(TT_MINUS, TT_MINUS);
         }
@@ -322,7 +323,7 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
 
             if (nextIsRight)
             {
-                cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                      << "RIGHT " << (isVar ? var : std::to_string(val)) << endl;
                 expr->right = isVar ? new Expression(var) : new Expression(val);
             }
@@ -330,28 +331,28 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
             {
                 if (pos == 0)
                 {
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "LEFT " << (isVar ? var : std::to_string(val)) << endl;
                     expr->left = isVar ? new Expression(var) : new Expression(val);
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "RETURN " << expr->to_string() << endl;
                     return expr;
                 }
                 else if (start_at == 0) // first loop; take care of the semicolon
                 {
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "LEFT_EXPR(1st) " << endl;
                     expr->left = parseExpr(vt, start_at + 3);
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "GOT LEFT_EXPR(1st)" << endl;
                     return expr;
                 }
                 else
                 {
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "LEFT_EXPR " << endl;
                     expr->left = parseExpr(vt, start_at + 2);
-                    cout << "[parseExpr] " << start_at << " | " << pos << " | "
+                    cerr << "[parseExpr] " << start_at << " | " << pos << " | "
                          << "GOT LEFT_EXPR" << endl;
                     return expr;
                 }
@@ -379,7 +380,7 @@ Expression *parseExpr(vector<Token> &vt, int start_at)
         //     }
         // }
         --pos;
-        // cout << "[parseExpr] " << start_at << " | " << pos << " | "
+        // cerr << "[parseExpr] " << start_at << " | " << pos << " | "
         //      << "POS-- | " << pos << endl;
     }
     return expr;
@@ -393,18 +394,18 @@ Statement *parseStmt(vector<Token> &vt)
         string s = "";
         for (auto t : vt)
             s += t.literal + " ";
-        cout << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
+        cerr << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
         vector<Token> vt2(int(vt.size()) - 3);
         for (int i = 0; i < int(vt.size() - 3); i++)
             vt2[i] = vt[i + 3];
         auto expr = parseExpr(vt2, 0);
-        cout << "[parseStmt] Return: " << expr->to_string() << endl;
+        cerr << "[parseStmt] Return: " << expr->to_string() << endl;
         return new Statement(t, expr);
     }
     else if (vt.at(0).type == TT_VEC)
     {
         auto t = new Token(vt.at(0).type, vt.at(1).literal);
-        cout << "[parseStmt] " << t->literal << endl;
+        cerr << "[parseStmt] " << t->literal << endl;
         auto expr = parseExpr(vt, 0);
         return new Statement(t, expr);
     }
@@ -414,24 +415,24 @@ Statement *parseStmt(vector<Token> &vt)
         string s = "";
         for (auto t : vt)
             s += t.literal + " ";
-        cout << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
+        cerr << "[parseStmt] size" << int(vt.size()) << " " << s << endl;
         vector<Token> vt2(int(vt.size()) - 1);
         for (int i = 0; i < int(vt.size() - 1); i++)
             vt2[i] = vt[i + 1];
         auto expr = parseExpr(vt2, 0);
-        cout << "[parseStmt] Return" << endl;
+        cerr << "[parseStmt] Return" << endl;
         return new Statement(t, expr);
     }
     else if (vt.at(0).type == TT_PVEC)
     {
         auto t = new Token(vt.at(0).type, vt.at(0).literal);
-        cout << "[parseStmt] " << t->literal << endl;
+        cerr << "[parseStmt] " << t->literal << endl;
         auto expr = parseExpr(vt, 1);
         return new Statement(t, expr);
     }
     // err
     auto t = new Token();
-    cout << "[parseStmt] " << t->literal << endl;
+    cerr << "[parseStmt] " << t->literal << endl;
     auto expr = new Expression();
     return new Statement(t, expr);
 };
@@ -444,35 +445,35 @@ void resolveVar(Expression *expr, Variables *vars)
     if (expr->node->type == TT_VAR)
     {
         auto n = (*vars)[expr->node->var_value];
-        cout << "[evalExpr] NODE(RESOLVE) | " << (expr->node->var_value) << " -> " << n.to_string() << endl;
+        cerr << "[evalExpr] NODE(RESOLVE) | " << (expr->node->var_value) << " -> " << n.to_string() << endl;
         // if (n.type == TT_INT)
         //     expr->node = new Node(n.int_value);
         // ポインタ代入でよさそう？(SEGVにならない)
         expr->node = &(*vars)[expr->node->var_value];
-        cout << "[evalExpr] NODE(RESOLVED) | " << expr->to_string() << endl;
+        cerr << "[evalExpr] NODE(RESOLVED) | " << expr->to_string() << endl;
     }
 }
 
 void evalExpr(Expression *expr, Variables *vars)
 {
-    cout << "[evalExpr] START | " << expr->to_string() << endl;
-    // cout << "CHECK NULL" << endl;
+    cerr << "[evalExpr] START | " << expr->to_string() << endl;
+    // cerr << "CHECK NULL" << endl;
     // if (expr->op == NULL)
-    //     cout << "expr->op == NULL" << endl;
+    //     cerr << "expr->op == NULL" << endl;
     // if (expr->node == NULL)
-    //     cout << "expr->node == NULL" << endl;
+    //     cerr << "expr->node == NULL" << endl;
     // if (expr->left == NULL)
-    //     cout << "expr->left == NULL" << endl;
+    //     cerr << "expr->left == NULL" << endl;
     // if (expr->right == NULL)
-    //     cout << "expr->right == NULL" << endl;
-    // cout << "CHECKED NULL" << endl;
-    // cout << expr->op->type << endl;
+    //     cerr << "expr->right == NULL" << endl;
+    // cerr << "CHECKED NULL" << endl;
+    // cerr << expr->op->type << endl;
 
     // 自身がNodeなら終わり
     // (print_int a)のaとか
     if (expr->op->type == TT_INTERNAL_NODE)
     {
-        cout << "[evalExpr] NODE | " << expr->to_string() << endl;
+        cerr << "[evalExpr] NODE | " << expr->to_string() << endl;
         resolveVar(expr, vars);
         return;
     }
@@ -480,14 +481,14 @@ void evalExpr(Expression *expr, Variables *vars)
     // (a+b+c)のcとか
     if (expr->left->op->type != TT_INTERNAL_NODE)
     {
-        cout << "[evalExpr] RECURSION | " << expr->left->to_string() << endl;
+        cerr << "[evalExpr] RECURSION | " << expr->left->to_string() << endl;
         evalExpr(expr->left, vars);
     }
     // err check
     if (expr->left->op->type != TT_INTERNAL_NODE || expr->right->op->type != TT_INTERNAL_NODE)
-        cout << "[evalExpr] ERR | not TT_INTERNAL_NODE";
+        cerr << "[evalExpr] ERR | not TT_INTERNAL_NODE";
 
-    cout << "[evalExpr] CALC | " << expr->to_string() << endl;
+    cerr << "[evalExpr] CALC | " << expr->to_string() << endl;
     // 計算する前に変数を解決する
     resolveVar(expr->left, vars);
     resolveVar(expr->right, vars);
@@ -495,7 +496,7 @@ void evalExpr(Expression *expr, Variables *vars)
     {
         auto val = expr->left->node->int_value + expr->right->node->int_value;
         auto expr2 = new Expression(val);
-        cout << "[evalExpr] PLUS | " << expr2->to_string() << endl;
+        cerr << "[evalExpr] PLUS | " << expr2->to_string() << endl;
         // expr = expr2; // TODO: これなんでダメ？
         expr->left = NULL;
         expr->right = NULL;
@@ -506,7 +507,7 @@ void evalExpr(Expression *expr, Variables *vars)
     {
         auto val = expr->left->node->int_value - expr->right->node->int_value;
         auto expr2 = new Expression(val);
-        cout << "[evalExpr] MINUS | " << expr2->to_string() << endl;
+        cerr << "[evalExpr] MINUS | " << expr2->to_string() << endl;
         expr->left = NULL;
         expr->right = NULL;
         expr->op = new Token(TT_INTERNAL_NODE, TT_INTERNAL_NODE);
@@ -527,15 +528,15 @@ void evalExpr(Expression *expr, Variables *vars)
 //     どこかでエラーがあれば"ERR"を返す
 string evaluate(Statement *stmt, Variables *vars)
 {
-    cout << "[evaluate] " << stmt->to_string() << endl;
+    cerr << "[evaluate] " << stmt->to_string() << endl;
     if (stmt->var->type == TT_INT)
     {
         evalExpr(stmt->expr, vars);
         if (stmt->expr->op->type == TT_ERR)
             return TT_ERR;
-        cout << "[evaluate] SET VALUE " << stmt->expr->node->to_string() << " TO KEY " << stmt->var->literal << endl;
+        cerr << "[evaluate] SET VALUE " << stmt->expr->node->to_string() << " TO KEY " << stmt->var->literal << endl;
         (*vars)[stmt->var->literal] = *stmt->expr->node;
-        cout << "[evaluate] SET" << endl;
+        cerr << "[evaluate] SET" << endl;
         return "";
     }
     // else if (stmt->var->type == TT_VEC)
@@ -578,19 +579,9 @@ int main1()
     {
         string s;
         getline(cin, s);
-        // cout << "[getline] " << s << endl;
+        // cerr << "[getline] " << s << endl;
         tokens.push_back(tokenize(s));
     };
-    // print tokens
-    // for (auto tt : tokens)
-    // {
-    //     for (auto t : tt)
-    //     {
-    //         cout << t.literal << "(" << t.type << ")"
-    //              << " ";
-    //     }
-    //     cout << endl;
-    // }
     Variables pvars;
     rep(i, N)
     {
@@ -603,12 +594,12 @@ int main1()
     return 0;
 }
 
-// #define testS(expr, result) cout << (((expr) == (result)) ? "OK" : "NG") << ": " << (expr) << endl;
+// #define testS(expr, result) cerr << (((expr) == (result)) ? "OK" : "NG") << ": " << (expr) << endl;
 
 bool testS(string got, string want)
 {
     bool result = got == want;
-    cout << (result ? "OK" : "NG") << ": " << got << endl;
+    cerr << (result ? "OK" : "NG") << ": " << got << endl;
     return result;
 }
 
@@ -862,9 +853,11 @@ bool test()
 
 int main()
 {
+    // HACK: disable cerr
+    // cerr.setstate(std::ios::failbit);
     if (!test())
     {
-        cerr << "failed" << endl;
+        cout << "test failed" << endl;
         return 1;
     }
     main1();
