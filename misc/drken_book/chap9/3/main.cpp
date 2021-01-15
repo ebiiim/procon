@@ -16,11 +16,18 @@ const int inf = 1<<30; /* inf > 10^9 */ const i64 infLL = 1LL<<60; /* infLL > 10
 int main() {
   noflush;
 
-  int N;
-  cin >> N;
+  string S;
+  cin >> S;
 
-  vector<int> A(N);
-  rep(i, N) cin >> A[i];
-
-  // put("hello world");
+  stack<int> sc;
+  rep(i, S.size()) {
+    if (S[i] == '(') {
+      sc.push(i);
+    } else {
+      int right = i;
+      int left = sc.top();
+      sc.pop();
+      put(left << ' ' << right);
+    }
+  }
 }
