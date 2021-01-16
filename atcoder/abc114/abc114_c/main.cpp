@@ -40,5 +40,6 @@ int main() {
   int N;
   cin >> N;
 
+  // WA if N >~ 1000000000
   put(count753("", N));
 }
