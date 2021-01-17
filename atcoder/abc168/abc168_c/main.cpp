@@ -14,9 +14,8 @@ using namespace std;
 const int inf = 1<<30; /* inf > 10^9 */ const i64 infLL = 1LL<<60; /* infLL > 10^18*/
 // clang-format on
 
-// 一部WA
 int main() {
-  // noflush;
+  noflush;
 
   int A, B, H, M;
   cin >> A >> B >> H >> M;
@@ -33,11 +32,11 @@ int main() {
   double degM = fmod(6.0 * minute, 360);
   double degDiff = degH - degM;
   // double degDiff = (degH - degM < 0.0) ? degM - degH : degH - degM;
-  degDiff = degDiff > 180.0 ? fmod(degDiff, 180) : degDiff;
-  long double radDiff = cosl(PI / 180 * (long double)degDiff);
+  long double radDiff = PI / 180 * (long double)degDiff;
   // put("dHdM " << degH << ' ' << degM << " dD " << degDiff << " rD " << radDiff);
-  long double c2 =
-      ((long double)A * (long double)A) + ((long double)B * (long double)B) - 2.0 * (long double)(A) * (long double)(B) * radDiff;
+  long double c2 = ((long double)A * (long double)A) +
+                   ((long double)B * (long double)B) -
+                   2.0 * (long double)(A) * (long double)(B)*cosl(radDiff);
   long double c = sqrt(c2);
   put(fixed << setprecision(20) << c);
 }
