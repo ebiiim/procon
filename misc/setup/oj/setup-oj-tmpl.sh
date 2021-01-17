@@ -12,6 +12,8 @@ else
 fi
 TMPL="../tmpl"
 mkdir -p "${CFG}"
-cp prepare.config.toml "${CFG}/"
+cp prepare.config.toml.tmpl "${CFG}/prepare.config.toml"
+sed -i -e "s|MAIN_CPP|${CFG}/main.cpp|" "${CFG}/prepare.config.toml"
+sed -i -e "s|MAIN_PY|${CFG}/main.py|" "${CFG}/prepare.config.toml"
 cp "${TMPL}/main.cpp" "${CFG}/main.cpp"
 cp "${TMPL}/main.py" "${CFG}/main.py"
