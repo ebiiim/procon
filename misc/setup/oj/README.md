@@ -8,6 +8,10 @@ https://github.com/online-judge-tools/template-generator
 ## Install
 
 ```sh
+pip3 install online-judge-tools online-judge-template-generator
+```
+
+```sh
 ./setup-oj-tmpl.sh
 ```
 
