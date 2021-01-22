@@ -21,11 +21,17 @@ const int INF = 1<<30; /* INF > 10^9 */ const i64 INFLL = 1LL<<60; /* INFLL > 10
 int main() {
   noflush;
 
-  i64 N, A, B;
-  cin >> N >> A >> B;
+  int A, B;
+  cin >> A >> B;
 
-  i64 a = 0, b = 0;
-  a = N / (A + B) * A;
-  if (N % (A + B) != 0) b = min(N % (A + B), A);
-  put(a + b);
+  rep(i, ceil(101.0 / 0.08)) {
+    int a = floor((f64)i * 0.08);
+    int b = floor((f64)i * 0.10);
+    if (a == A && b == B) {
+      put(i);
+      return 0;
+    }
+  }
+  put(-1);
+  return 0;
 }
