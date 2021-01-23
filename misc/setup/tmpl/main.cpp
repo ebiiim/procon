@@ -1,7 +1,24 @@
 // clang-format off
-using namespace std;
 #define _GLIBCXX_DEBUG
-#include <bits/stdc++.h>
+#define _LIBCPP_DEBUG 0
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <tuple>
+#include <cstdint>
+#include <cstdio>
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <stack>
+#include <queue>
+#include <deque>
+#include <bitset>
+#include <cctype>
+using namespace std;
 #define PI 3.14159265358979323846264338327950L
 #define rep(i,n) for (int i=0; i<(int)(n); ++i)
 #define rep2(i,s,n) for (int i=(s); i<(int)(n); ++i)
