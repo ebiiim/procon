@@ -31,7 +31,7 @@ int main() {
     A[i].first = p0;
     A[i].second = p1;
     // put("A[i] " << A[i].first << ' ' << A[i].second);
-  };
+  }
 
   vi ans(N, -1);
   string ANS = "";
