@@ -1,26 +1,26 @@
-// clang-format off
 #define _GLIBCXX_DEBUG
 #define _LIBCPP_DEBUG 0
-#include <iostream>
-#include <string>
-#include <vector>
 #include <algorithm>
-#include <utility>
-#include <tuple>
-#include <cstdint>
-#include <cstdio>
-#include <map>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <stack>
-#include <queue>
-#include <deque>
 #include <bitset>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <deque>
+#include <iostream>
+#include <map>
 #include <numeric>
+#include <queue>
+#include <set>
+#include <stack>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 using namespace std;
+// clang-format off
 #define PI 3.14159265358979323846264338327950L
 #define rep(i,n) for (int i=0; i<(int)(n); ++i)
 #define rep2(i,s,n) for (int i=(s); i<(int)(n); ++i)
