@@ -18,6 +18,8 @@
 #include <deque>
 #include <bitset>
 #include <cctype>
+#include <cmath>
+#include <numeric>
 using namespace std;
 #define PI 3.14159265358979323846264338327950L
 #define rep(i,n) for (int i=0; i<(int)(n); ++i)
