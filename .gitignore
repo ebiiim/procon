@@ -1,3 +1,13 @@
-!*.out
+# C/C++
 a.out
+
+# VSCode
 .vscode/
+
+# Rust
+debug/
+target/
+# remove Cargo.lock for executables (do not for libraries)
+Cargo.lock
+# rustfmt
+**/*.rs.bk
