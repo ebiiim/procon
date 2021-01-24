@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <deque>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <numeric>
