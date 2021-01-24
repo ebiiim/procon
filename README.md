@@ -1,4 +1,4 @@
-# なにもわからない🤪
+# Why is coding so difficult?🙄
 
 ## AtCoder [/atcoder](/atcoder/)
 
