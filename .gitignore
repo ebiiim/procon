@@ -1,3 +1,6 @@
+# test cases
+!*.out
+
 # C/C++
 a.out
 
