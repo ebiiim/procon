@@ -43,13 +43,11 @@ const int INF = 1<<30; /* INF > 10^9 */ const i64 INFLL = 1LL<<60; /* INFLL > 10
 int main() {
   prep_ios(true);
 
-  int N;
+  i64 N;
   cin >> N;
 
-  vector<int> A(N);
+  vi A(N);
   rep(i, N) cin >> A[i];
 
-  put(A);
-  // string ans = YES;
-  // put(ans);
+  put("tmpl");
 }
