@@ -4,9 +4,6 @@
 # C/C++
 a.out
 
-# VSCode
-.vscode/
-
 # Rust
 debug/
 target/
