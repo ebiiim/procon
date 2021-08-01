@@ -9,47 +9,27 @@
             "command": "echo Hello",
             "problemMatcher": [],
         },
+        // Step 1: build task (Ctrl+Shift+B) -> oj-test
+        // Step 2: test task -> oj-submit
         {
-            "label": "oj-submit-rust",
+            "label": "oj-submit",
             "type": "shell",
-            "command": "cd ${relativeFileDirname} && cd .. && cp src/main.rs main.rs && oj s main.rs -y -w0 && rm main.rs",
+            "command": "(echo ${file} | grep .rs) && (cd ${relativeFileDirname} && cd .. && cp src/main.rs main.rs && oj s main.rs -y -w0 && rm main.rs); (echo ${file} | grep .py) && (cd ${relativeFileDirname} && oj s main.py -y -w0); (echo ${file} | grep .cpp) && (cd ${relativeFileDirname} && oj s main.cpp -y -w0)",
             "problemMatcher": [],
-            "group": "build",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
         },
         {
-            "label": "oj-submit-python",
+            "label": "oj-test",
             "type": "shell",
-            "command": "cd ${relativeFileDirname} && oj s main.py -y -w0",
+            "command": "(echo ${file} | grep .rs) && (cd ${relativeFileDirname} && cd .. && oj t -c \"cargo run\"); (echo ${file} | grep .py) && (cd ${relativeFileDirname} && oj t -c \"python3 main.py\"); (echo ${file} | grep .cpp) && (cd ${relativeFileDirname} && g++ main.cpp && oj t)",
             "problemMatcher": [],
-            "group": "build",
-        },
-        {
-            "label": "oj-submit-cpp",
-            "type": "shell",
-            "command": "cd ${relativeFileDirname} && oj s main.cpp -y -w0",
-            "problemMatcher": [],
-            "group": "build",
-        },
-        {
-            "label": "oj-test-rust",
-            "type": "shell",
-            "command": "cd ${relativeFileDirname} && cd .. && oj t -c \"cargo run\"",
-            "problemMatcher": [],
-            "group": "test",
-        },
-        {
-            "label": "oj-test-python",
-            "type": "shell",
-            "command": "cd ${relativeFileDirname} && oj t -c \"python3 main.py\"",
-            "problemMatcher": [],
-            "group": "test",
-        },
-        {
-            "label": "oj-test-cpp",
-            "type": "shell",
-            "command": "cd ${relativeFileDirname} && g++ main.cpp && oj t",
-            "problemMatcher": [],
-            "group": "test",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
         },
     ]
 }
