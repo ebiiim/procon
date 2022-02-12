@@ -156,12 +156,23 @@ class Field:
     def move(self, turnNum: int) -> str:
         if turnNum == 0:
             pass
+
+            # AVG: 1873844.9797979798
+            # for (idx, h) in enumerate(self.humans):
+            #     h.actq.append(Act("MOVE", (idx+1)*2-1, 1, ""))
+            #     h.actq.append(Act("WAITUNTIL", 50, -1, ""))
+            #     for y in range(1, 31):
+            #         h.actq.append(Act("MOVE", (idx+1)*2-1, y, ""))
+            #         h.actq.append(Act("DRAW", -1, -1, "d"))
+
+            # AVG: 3188825.272727273
             for (idx, h) in enumerate(self.humans):
-                h.actq.append(Act("MOVE", (idx+1)*2-1, 1, ""))
+                h.actq.append(Act("MOVE", (idx+1)*3-1, 1, ""))
                 h.actq.append(Act("WAITUNTIL", 50, -1, ""))
                 for y in range(1, 31):
-                    h.actq.append(Act("MOVE", (idx+1)*2-1, y, ""))
-                    h.actq.append(Act("DRAW", -1, -1, "d"))
+                    h.actq.append(Act("MOVE", (idx+1)*3-1, y, ""))
+                    if idx != 9:
+                        h.actq.append(Act("DRAW", -1, -1, "d"))
 
         acts = ""
         for (_, h) in enumerate(self.humans):
