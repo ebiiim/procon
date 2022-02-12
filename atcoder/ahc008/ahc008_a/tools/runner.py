@@ -20,5 +20,6 @@ def runapp(idx) -> int:
 
 
 pool = multiprocessing.Pool()
-ans = pool.map(runapp, range(0, 99))
+ans = pool.map(runapp, range(0, 100))
+print("SUM:", sum(ans))
 print("AVG:", sum(ans)/len(ans))

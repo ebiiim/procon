@@ -157,7 +157,8 @@ class Field:
         if turnNum == 0:
             pass
 
-            # AVG: 1873844.9797979798
+            # SUM: 186930358
+            # AVG: 1869303.58
             # for (idx, h) in enumerate(self.humans):
             #     h.actq.append(Act("MOVE", (idx+1)*2-1, 1, ""))
             #     h.actq.append(Act("WAITUNTIL", 50, -1, ""))
@@ -165,7 +166,8 @@ class Field:
             #         h.actq.append(Act("MOVE", (idx+1)*2-1, y, ""))
             #         h.actq.append(Act("DRAW", -1, -1, "d"))
 
-            # AVG: 3188825.272727273
+            # SUM: 319446957
+            # AVG: 3194469.57
             for (idx, h) in enumerate(self.humans):
                 h.actq.append(Act("MOVE", (idx+1)*3-1, 1, ""))
                 h.actq.append(Act("WAITUNTIL", 50, -1, ""))
